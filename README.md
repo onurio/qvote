@@ -1,6 +1,8 @@
 # QVote - Quadratic Voting for Slack
 
-A Slack app for creating quadratic votes in your workspace. Quadratic voting is a collective decision-making procedure where participants express how strongly they feel about different issues by spending "voice credits" to influence the outcome.
+A Slack app for creating quadratic votes in your workspace. Quadratic voting is a collective
+decision-making procedure where participants express how strongly they feel about different issues
+by spending "voice credits" to influence the outcome.
 
 ## Features
 
@@ -49,6 +51,7 @@ deno task dev
 #### Using Docker Compose
 
 For production:
+
 ```bash
 # Start the application and database with Docker
 docker compose up -d
@@ -58,6 +61,7 @@ docker compose logs -f
 ```
 
 For development (with hot reload and volume mounting):
+
 ```bash
 # Start with development config
 docker compose -f docker-compose.dev.yml up -d

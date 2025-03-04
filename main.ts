@@ -14,13 +14,13 @@ async function connectToDatabase(retries = 5, delay = 5000) {
       // Simple query to check connection
       const result = await sql`SELECT 1 as connection_test`;
       console.log(
-        `Database connection successful: ${result[0].connection_test === 1}`
+        `Database connection successful: ${result[0].connection_test === 1}`,
       );
       return;
     } catch (error) {
       console.error(
         `Database connection attempt ${attempt}/${retries} failed:`,
-        error
+        error,
       );
 
       if (attempt < retries) {
@@ -29,10 +29,10 @@ async function connectToDatabase(retries = 5, delay = 5000) {
       } else {
         console.error("All database connection attempts failed.");
         console.error(
-          "Please ensure PostgreSQL is running and .env is configured correctly."
+          "Please ensure PostgreSQL is running and .env is configured correctly.",
         );
         console.error(
-          "Run 'deno task setup-db' and 'deno task migrate' to set up the database."
+          "Run 'deno task setup-db' and 'deno task migrate' to set up the database.",
         );
         Deno.exit(1);
       }
@@ -127,7 +127,7 @@ if (useHttps) {
     });
     console.log(`HTTPS server started on port ${port}`);
   } catch (error) {
-    console.error(`Error setting up HTTPS server: ${error.message}`);
+    console.error(`Error setting up HTTPS server: ${(error as Error).message}`);
     console.error(`Failed to read certificate files: ${certFile}, ${keyFile}`);
     Deno.exit(1);
   }

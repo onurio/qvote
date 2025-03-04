@@ -22,12 +22,12 @@ const sql = postgres({
 
 try {
   console.log(`Creating database ${dbName} if it doesn't exist...`);
-  
+
   // Check if database exists
   const result = await sql`
     SELECT 1 FROM pg_database WHERE datname = ${dbName}
   `;
-  
+
   // Create database if it doesn't exist
   if (result.length === 0) {
     // Need to use text query for CREATE DATABASE
@@ -36,7 +36,7 @@ try {
   } else {
     console.log(`Database ${dbName} already exists.`);
   }
-  
+
   console.log("Database setup complete! Now run 'deno task migrate' to create the tables.");
 } catch (error) {
   console.error("Database setup error:", error);

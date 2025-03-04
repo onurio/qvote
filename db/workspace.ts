@@ -9,7 +9,7 @@ export async function saveWorkspace(
   botUserId: string,
 ): Promise<Workspace> {
   const now = new Date();
-  
+
   const result = await sql`
     INSERT INTO workspaces (
       team_id, team_name, access_token, bot_user_id, created_at, updated_at
@@ -26,7 +26,7 @@ export async function saveWorkspace(
       access_token as "accessToken", bot_user_id as "botUserId",
       created_at as "createdAt", updated_at as "updatedAt"
   `;
-  
+
   return result[0] as Workspace;
 }
 
@@ -40,7 +40,7 @@ export async function getWorkspaceByTeamId(teamId: string): Promise<Workspace | 
     FROM workspaces
     WHERE team_id = ${teamId}
   `;
-  
+
   return result.length > 0 ? (result[0] as Workspace) : null;
 }
 
@@ -54,8 +54,8 @@ export async function getAllWorkspaces(): Promise<Workspace[]> {
     FROM workspaces
     ORDER BY created_at DESC
   `;
-  
-  return result as Workspace[];
+
+  return result.map((row) => row as unknown as Workspace);
 }
 
 // Delete a workspace by team ID
@@ -65,6 +65,6 @@ export async function deleteWorkspaceByTeamId(teamId: string): Promise<boolean> 
     WHERE team_id = ${teamId}
     RETURNING id
   `;
-  
+
   return result.length > 0;
 }

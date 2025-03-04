@@ -2,6 +2,8 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { Application } from "jsr:@oak/oak";
 import router from "./routes.ts";
 
+// No need to mock DB for tests
+
 // Mock environment variables
 Deno.env.set("SLACK_CLIENT_ID", "test_client_id");
 Deno.env.set("SLACK_CLIENT_SECRET", "test_client_secret");
@@ -26,7 +28,7 @@ const createTestApp = () => {
 Deno.test("OAuth authorize route redirects to Slack", async () => {
   const app = createTestApp();
   const resp = (await app.handle(
-    new Request("http://localhost:8080/oauth/authorize")
+    new Request("http://localhost:8080/oauth/authorize"),
   )) as Response;
 
   assertEquals(resp.status, 302);
@@ -39,7 +41,7 @@ Deno.test("OAuth authorize route redirects to Slack", async () => {
 Deno.test("OAuth callback route handles missing code parameter", async () => {
   const app = createTestApp();
   const resp = (await app.handle(
-    new Request("http://localhost:8080/oauth/callback?state=test-state")
+    new Request("http://localhost:8080/oauth/callback?state=test-state"),
   )) as Response;
 
   assertEquals(resp.status, 400);
@@ -50,7 +52,7 @@ Deno.test("OAuth callback route handles missing code parameter", async () => {
 Deno.test("OAuth callback route handles missing state parameter", async () => {
   const app = createTestApp();
   const resp = (await app.handle(
-    new Request("http://localhost:8080/oauth/callback?code=test_code")
+    new Request("http://localhost:8080/oauth/callback?code=test_code"),
   )) as Response;
 
   assertEquals(resp.status, 400);
@@ -60,22 +62,25 @@ Deno.test("OAuth callback route handles missing state parameter", async () => {
 
 Deno.test("OAuth callback route handles successful authorization", async () => {
   // Mock fetch to return a successful response
-  globalThis.fetch = async () => {
-    return new Response(
-      JSON.stringify({
-        ok: true,
-        access_token: "xoxb-test-token",
-        team: { id: "T12345" },
-      }),
-      { status: 200 }
+  globalThis.fetch = () => {
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          access_token: "xoxb-test-token",
+          team: { id: "T12345", name: "Test Team" },
+          bot_user_id: "U12345",
+        }),
+        { status: 200 },
+      ),
     );
   };
 
   const app = createTestApp();
   const resp = (await app.handle(
     new Request(
-      "http://localhost:8080/oauth/callback?code=test_code&state=test-state"
-    )
+      "http://localhost:8080/oauth/callback?code=test_code&state=test-state",
+    ),
   )) as Response;
 
   assertEquals(resp.status, 200);
@@ -88,21 +93,23 @@ Deno.test("OAuth callback route handles successful authorization", async () => {
 
 Deno.test("OAuth callback route handles Slack API error", async () => {
   // Mock fetch to return an error response
-  globalThis.fetch = async () => {
-    return new Response(
-      JSON.stringify({
-        ok: false,
-        error: "invalid_code",
-      }),
-      { status: 200 }
+  globalThis.fetch = () => {
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          ok: false,
+          error: "invalid_code",
+        }),
+        { status: 200 },
+      ),
     );
   };
 
   const app = createTestApp();
   const resp = (await app.handle(
     new Request(
-      "http://localhost:8080/oauth/callback?code=invalid_code&state=test-state"
-    )
+      "http://localhost:8080/oauth/callback?code=invalid_code&state=test-state",
+    ),
   )) as Response;
 
   assertEquals(resp.status, 500);

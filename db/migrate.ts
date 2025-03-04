@@ -10,7 +10,7 @@ try {
   // Create extension if it doesn't exist
   await sql`CREATE EXTENSION IF NOT EXISTS "pgcrypto"`;
   console.log("Created pgcrypto extension if it didn't exist");
-  
+
   // Create workspaces table for storing Slack OAuth tokens
   await sql`
     CREATE TABLE IF NOT EXISTS workspaces (

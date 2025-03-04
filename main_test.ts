@@ -1,5 +1,5 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
-import { Router, Application } from "jsr:@oak/oak";
+import { Application, Router } from "jsr:@oak/oak";
 
 // Create a simplified version of the router for testing
 const createTestRouter = () => {
@@ -28,9 +28,9 @@ Deno.test("Home route renders correctly", async () => {
   const app = new Application();
   app.use(router.routes());
   app.use(router.allowedMethods());
-  
+
   const resp = await app.handle(new Request("http://localhost:8080/")) as Response;
-  
+
   assertEquals(resp.status, 200);
   const text = await resp.text();
   assertStringIncludes(text, "QVote - Quadratic Voting for Slack");
