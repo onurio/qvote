@@ -106,4 +106,4 @@ The application uses PostgreSQL with the following tables:
 
 ## License
 
-MIT License - Copyright (c) 2025
+MIT License - Copyright (c) 2025 - All rights reserved
