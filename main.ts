@@ -1,95 +1,25 @@
 import { Application } from "jsr:@oak/oak/application";
 import { Router } from "jsr:@oak/oak/router";
+import { Context } from "jsr:@oak/oak/context";
 import { load } from "@std/dotenv";
 import oauthRouter from "./oauth/routes.ts";
-import sql from "./db/client.ts";
+import { closeDatabase, connectToDatabase } from "./db/connection.ts";
+import { getHomePage } from "./ui/pages.ts";
 
 // Load environment variables from .env file
 await load({ export: true });
 
-// Check database connection with retry logic for Docker
-async function connectToDatabase(retries = 5, delay = 5000) {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      // Simple query to check connection
-      const result = await sql`SELECT 1 as connection_test`;
-      console.log(
-        `Database connection successful: ${result[0].connection_test === 1}`,
-      );
-      return;
-    } catch (error) {
-      console.error(
-        `Database connection attempt ${attempt}/${retries} failed:`,
-        error,
-      );
-
-      if (attempt < retries) {
-        console.log(`Retrying in ${delay / 1000} seconds...`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      } else {
-        console.error("All database connection attempts failed.");
-        console.error(
-          "Please ensure PostgreSQL is running and .env is configured correctly.",
-        );
-        console.error(
-          "Run 'deno task setup-db' and 'deno task migrate' to set up the database.",
-        );
-        Deno.exit(1);
-      }
-    }
-  }
-}
-
-await connectToDatabase();
-
-const router = new Router();
-router.get("/", (ctx) => {
-  ctx.response.body = `<!DOCTYPE html>
-    <html>
-      <head>
-        <title>QVote - Quadratic Voting for Slack</title>
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 2rem;
-            line-height: 1.6;
-          }
-          .button {
-            display: inline-block;
-            background-color: #4A154B;
-            color: white;
-            text-decoration: none;
-            padding: 12px 24px;
-            border-radius: 4px;
-            font-weight: bold;
-          }
-        </style>
-      </head>
-      <body>
-        <h1>QVote - Quadratic Voting for Slack</h1>
-        <p>Make better group decisions with quadratic voting in your Slack workspace.</p>
-        <p>
-          <a href="/oauth/authorize" class="button">Add to Slack</a>
-        </p>
-      </body>
-    </html>
-  `;
-});
-
-const app = new Application();
-
-// Add middleware for logging
-app.use(async (ctx, next) => {
+async function loggingMiddleware(ctx: Context, next: () => Promise<unknown>) {
   const start = Date.now();
   await next();
   const ms = Date.now() - start;
   console.log(`${ctx.request.method} ${ctx.request.url} - ${ms}ms`);
-});
+}
 
-// Add error handling middleware
-app.use(async (ctx, next) => {
+async function errorHandlingMiddleware(
+  ctx: Context,
+  next: () => Promise<unknown>,
+) {
   try {
     await next();
   } catch (err) {
@@ -97,18 +27,44 @@ app.use(async (ctx, next) => {
     ctx.response.status = 500;
     ctx.response.body = "Internal server error";
   }
-});
+}
 
-// Register all routers
-app.use(router.routes());
-app.use(router.allowedMethods());
-app.use(oauthRouter.routes());
-app.use(oauthRouter.allowedMethods());
+function setupServer() {
+  // Setup router
+  const router = new Router();
+  router.get("/", async (ctx) => {
+    ctx.response.body = await getHomePage();
+  });
 
-const port = parseInt(Deno.env.get("PORT") || "8080");
-const useHttps = Deno.env.get("USE_HTTPS") === "true";
+  // Create app
+  const app = new Application();
 
-if (useHttps) {
+  // Add middleware
+  app.use(loggingMiddleware);
+  app.use(errorHandlingMiddleware);
+
+  // Register all routers
+  app.use(router.routes());
+  app.use(router.allowedMethods());
+  app.use(oauthRouter.routes());
+  app.use(oauthRouter.allowedMethods());
+
+  return app;
+}
+
+async function startServer(app: Application) {
+  const port = parseInt(Deno.env.get("PORT") || "8080");
+  const useHttps = Deno.env.get("USE_HTTPS") === "true";
+
+  if (useHttps) {
+    await startHttpsServer(app, port);
+  } else {
+    console.log(`QVote server starting on port ${port}...`);
+    await app.listen({ port });
+  }
+}
+
+async function startHttpsServer(app: Application, port: number) {
   // Get certificate files
   const certFile = Deno.env.get("CERT_FILE") || "./certs/cert.pem";
   const keyFile = Deno.env.get("KEY_FILE") || "./certs/key.pem";
@@ -131,20 +87,25 @@ if (useHttps) {
     console.error(`Failed to read certificate files: ${certFile}, ${keyFile}`);
     Deno.exit(1);
   }
-} else {
-  console.log(`QVote server starting on port ${port}...`);
-  await app.listen({ port });
 }
 
-// Handle graceful shutdowns
-Deno.addSignalListener("SIGINT", async () => {
-  console.log("Shutting down server...");
-  await sql.end();
-  Deno.exit(0);
-});
+function setupShutdownHandlers() {
+  // Handle graceful shutdowns
+  Deno.addSignalListener("SIGINT", async () => {
+    console.log("Shutting down server...");
+    await closeDatabase();
+    Deno.exit(0);
+  });
 
-Deno.addSignalListener("SIGTERM", async () => {
-  console.log("Shutting down server...");
-  await sql.end();
-  Deno.exit(0);
-});
+  Deno.addSignalListener("SIGTERM", async () => {
+    console.log("Shutting down server...");
+    await closeDatabase();
+    Deno.exit(0);
+  });
+}
+
+// Main execution flow
+await connectToDatabase();
+const app = setupServer();
+setupShutdownHandlers();
+await startServer(app);
