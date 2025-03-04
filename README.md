@@ -106,4 +106,4 @@ The application uses PostgreSQL with the following tables:
 
 ## License
 
-MIT
+MIT License
