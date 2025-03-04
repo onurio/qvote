@@ -1,5 +1,5 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
-import { Application, Router, Context } from "jsr:@oak/oak";
+import { Application } from "jsr:@oak/oak";
 import router from "./routes.ts";
 
 // Mock environment variables
@@ -25,9 +25,9 @@ const createTestApp = () => {
 
 Deno.test("OAuth authorize route redirects to Slack", async () => {
   const app = createTestApp();
-  const resp = await app.handle(
+  const resp = (await app.handle(
     new Request("http://localhost:8080/oauth/authorize")
-  ) as Response;
+  )) as Response;
 
   assertEquals(resp.status, 302);
   const location = resp.headers.get("Location");
@@ -38,9 +38,9 @@ Deno.test("OAuth authorize route redirects to Slack", async () => {
 
 Deno.test("OAuth callback route handles missing code parameter", async () => {
   const app = createTestApp();
-  const resp = await app.handle(
+  const resp = (await app.handle(
     new Request("http://localhost:8080/oauth/callback?state=test-state")
-  ) as Response;
+  )) as Response;
 
   assertEquals(resp.status, 400);
   const text = await resp.text();
@@ -49,9 +49,9 @@ Deno.test("OAuth callback route handles missing code parameter", async () => {
 
 Deno.test("OAuth callback route handles missing state parameter", async () => {
   const app = createTestApp();
-  const resp = await app.handle(
+  const resp = (await app.handle(
     new Request("http://localhost:8080/oauth/callback?code=test_code")
-  ) as Response;
+  )) as Response;
 
   assertEquals(resp.status, 400);
   const text = await resp.text();
@@ -72,11 +72,11 @@ Deno.test("OAuth callback route handles successful authorization", async () => {
   };
 
   const app = createTestApp();
-  const resp = await app.handle(
+  const resp = (await app.handle(
     new Request(
       "http://localhost:8080/oauth/callback?code=test_code&state=test-state"
     )
-  ) as Response;
+  )) as Response;
 
   assertEquals(resp.status, 200);
   const text = await resp.text();
@@ -99,11 +99,11 @@ Deno.test("OAuth callback route handles Slack API error", async () => {
   };
 
   const app = createTestApp();
-  const resp = await app.handle(
+  const resp = (await app.handle(
     new Request(
       "http://localhost:8080/oauth/callback?code=invalid_code&state=test-state"
     )
-  ) as Response;
+  )) as Response;
 
   assertEquals(resp.status, 500);
   const text = await resp.text();

@@ -1,4 +1,5 @@
 import { Router } from "jsr:@oak/oak/router";
+import { saveWorkspace } from "../db/workspace.ts";
 
 const router = new Router();
 
@@ -66,9 +67,14 @@ router.get("/oauth/callback", async (ctx) => {
       return;
     }
 
-    // In a real app, store these tokens securely in a database
+    // Save workspace data in the database
     const accessToken = data.access_token;
     const teamId = data.team.id;
+    const teamName = data.team.name;
+    const botUserId = data.bot_user_id;
+    
+    await saveWorkspace(teamId, teamName, accessToken, botUserId);
+    console.log(`Workspace saved: ${teamName} (${teamId})`);
     
     // Success page
     ctx.response.body = `
