@@ -1,0 +1,22 @@
+#!/bin/sh
+# QVote pre-commit hook
+# Run linting, formatting check, type checking, and tests before commit
+
+# Debug output to a file
+echo "Pre-commit hook triggered at $(date)" > /tmp/qvote-precommit.log
+
+echo "Running QVote pre-commit checks..."
+
+# Run the check:all task which includes lint, format check, type check, and tests
+deno task check:all
+
+# Capture the exit code
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -ne 0 ]; then
+  echo "❌ Pre-commit checks failed! Please fix the issues before committing."
+  exit $EXIT_CODE
+else
+  echo "✅ Pre-commit checks passed!"
+  exit 0
+fi

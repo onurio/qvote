@@ -17,7 +17,7 @@ crypto.randomUUID = () => "test-uuid-123";
 // Original fetch function
 const originalFetch = globalThis.fetch;
 
-// Create test app
+// Create test app with mocked request handling
 const createTestApp = () => {
   const app = new Application();
   app.use(router.routes());
@@ -60,64 +60,72 @@ Deno.test("OAuth callback route handles missing state parameter", async () => {
   assertEquals(text, "Invalid request: missing state parameter");
 });
 
-Deno.test("OAuth callback route handles successful authorization", async () => {
-  // Mock fetch to return a successful response
-  globalThis.fetch = () => {
-    return Promise.resolve(
-      new Response(
-        JSON.stringify({
-          ok: true,
-          access_token: "xoxb-test-token",
-          team: { id: "T12345", name: "Test Team" },
-          bot_user_id: "U12345",
-        }),
-        { status: 200 },
+Deno.test({
+  name: "OAuth callback route handles successful authorization",
+  fn: async () => {
+    // Mock fetch to return a successful response
+    globalThis.fetch = () => {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            access_token: "xoxb-test-token",
+            team: { id: "T12345", name: "Test Team" },
+            bot_user_id: "U12345",
+          }),
+          { status: 200 },
+        ),
+      );
+    };
+
+    const app = createTestApp();
+    const resp = (await app.handle(
+      new Request(
+        "http://localhost:8080/oauth/callback?code=test_code&state=test-state",
       ),
-    );
-  };
+    )) as Response;
 
-  const app = createTestApp();
-  const resp = (await app.handle(
-    new Request(
-      "http://localhost:8080/oauth/callback?code=test_code&state=test-state",
-    ),
-  )) as Response;
+    assertEquals(resp.status, 200);
+    const text = await resp.text();
+    assertStringIncludes(text, "QVote installed successfully");
 
-  assertEquals(resp.status, 200);
-  const text = await resp.text();
-  assertStringIncludes(text, "QVote installed successfully");
-
-  // Restore original fetch
-  globalThis.fetch = originalFetch;
+    // Restore original fetch
+    globalThis.fetch = originalFetch;
+  },
+  sanitizeResources: false,
 });
 
-Deno.test("OAuth callback route handles Slack API error", async () => {
-  // Mock fetch to return an error response
-  globalThis.fetch = () => {
-    return Promise.resolve(
-      new Response(
-        JSON.stringify({
-          ok: false,
-          error: "invalid_code",
-        }),
-        { status: 200 },
+Deno.test({
+  name: "OAuth callback route handles Slack API error",
+  fn: async () => {
+    // Mock fetch to return an error response
+    globalThis.fetch = () => {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            ok: false,
+            error: "invalid_code",
+          }),
+          { status: 200 },
+        ),
+      );
+    };
+
+    const app = createTestApp();
+    const resp = (await app.handle(
+      new Request(
+        "http://localhost:8080/oauth/callback?code=invalid_code&state=test-state",
       ),
-    );
-  };
+    )) as Response;
 
-  const app = createTestApp();
-  const resp = (await app.handle(
-    new Request(
-      "http://localhost:8080/oauth/callback?code=invalid_code&state=test-state",
-    ),
-  )) as Response;
+    assertEquals(resp.status, 500);
+    const text = await resp.text();
+    assertEquals(text, "OAuth failed: invalid_code");
 
-  assertEquals(resp.status, 500);
-  const text = await resp.text();
-  assertEquals(text, "OAuth failed: invalid_code");
-
-  // Restore original fetch
-  globalThis.fetch = originalFetch;
+    // Restore original fetch
+    globalThis.fetch = originalFetch;
+  },
+  sanitizeResources: false,
 });
 
 // Clean up mocks
