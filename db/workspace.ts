@@ -1,5 +1,4 @@
-import sql from "./client.ts";
-import { Workspace } from "./schema.ts";
+import { prisma } from "./prisma.ts";
 
 // Save a workspace's OAuth token info to the database
 export async function saveWorkspace(
@@ -7,64 +6,55 @@ export async function saveWorkspace(
   teamName: string,
   accessToken: string,
   botUserId: string,
-): Promise<Workspace> {
+) {
   const now = new Date();
 
-  const result = await sql`
-    INSERT INTO workspaces (
-      team_id, team_name, access_token, bot_user_id, created_at, updated_at
-    ) VALUES (
-      ${teamId}, ${teamName}, ${accessToken}, ${botUserId}, ${now}, ${now}
-    )
-    ON CONFLICT (team_id) 
-    DO UPDATE SET
-      team_name = ${teamName},
-      access_token = ${accessToken},
-      bot_user_id = ${botUserId},
-      updated_at = ${now}
-    RETURNING id, team_id as "teamId", team_name as "teamName", 
-      access_token as "accessToken", bot_user_id as "botUserId",
-      created_at as "createdAt", updated_at as "updatedAt"
-  `;
+  const result = await prisma.workspace.upsert({
+    where: { teamId },
+    update: {
+      teamName,
+      accessToken,
+      botUserId,
+      updatedAt: now,
+    },
+    create: {
+      teamId,
+      teamName,
+      accessToken,
+      botUserId,
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
 
-  return result[0] as Workspace;
+  return result;
 }
 
 // Get a workspace by team ID
-export async function getWorkspaceByTeamId(teamId: string): Promise<Workspace | null> {
-  const result = await sql`
-    SELECT 
-      id, team_id as "teamId", team_name as "teamName", 
-      access_token as "accessToken", bot_user_id as "botUserId",
-      created_at as "createdAt", updated_at as "updatedAt"
-    FROM workspaces
-    WHERE team_id = ${teamId}
-  `;
-
-  return result.length > 0 ? (result[0] as Workspace) : null;
+export async function getWorkspaceByTeamId(teamId: string) {
+  return await prisma.workspace.findUnique({
+    where: { teamId },
+  });
 }
 
 // Get all workspaces
-export async function getAllWorkspaces(): Promise<Workspace[]> {
-  const result = await sql`
-    SELECT 
-      id, team_id as "teamId", team_name as "teamName", 
-      access_token as "accessToken", bot_user_id as "botUserId",
-      created_at as "createdAt", updated_at as "updatedAt"
-    FROM workspaces
-    ORDER BY created_at DESC
-  `;
-
-  return result.map((row) => row as unknown as Workspace);
+export async function getAllWorkspaces() {
+  return await prisma.workspace.findMany({
+    orderBy: { createdAt: "desc" },
+  });
 }
 
 // Delete a workspace by team ID
-export async function deleteWorkspaceByTeamId(teamId: string): Promise<boolean> {
-  const result = await sql`
-    DELETE FROM workspaces
-    WHERE team_id = ${teamId}
-    RETURNING id
-  `;
-
-  return result.length > 0;
+export async function deleteWorkspaceByTeamId(
+  teamId: string,
+): Promise<boolean> {
+  try {
+    await prisma.workspace.delete({
+      where: { teamId },
+    });
+    return true;
+  } catch (error) {
+    console.error("Error deleting workspace:", error);
+    return false;
+  }
 }

@@ -1,0 +1,58 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["deno"]
+  output          = "../node_modules/generated"
+  binaryTargets = ["native", "linux-arm64-openssl-1.1.x"]
+}
+
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Workspace {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teamId      String   @unique @map("team_id")
+  teamName    String   @map("team_name")
+  accessToken String   @map("access_token")
+  botUserId   String   @map("bot_user_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  votes       Vote[]
+
+  @@map("workspaces")
+}
+
+model Vote {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId    String         @map("workspace_id") @db.Uuid
+  channelId      String         @map("channel_id")
+  creatorId      String         @map("creator_id")
+  title          String
+  description    String?
+  options        Json
+  creditsPerUser Int            @default(100) @map("credits_per_user")
+  startTime      DateTime       @default(now()) @map("start_time") @db.Timestamptz(6)
+  endTime        DateTime?      @map("end_time") @db.Timestamptz(6)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
+  responses      VoteResponse[]
+  workspace      Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("votes")
+}
+
+model VoteResponse {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  voteId      String   @map("vote_id") @db.Uuid
+  userId      String   @map("user_id")
+  optionIndex Int      @map("option_index")
+  credits     Int
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  vote        Vote     @relation(fields: [voteId], references: [id], onDelete: Cascade)
+
+  @@unique([voteId, userId, optionIndex])
+  @@map("vote_responses")
+}

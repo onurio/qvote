@@ -40,7 +40,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
       - DB_NAME=${DB_NAME:-qvote}
     command: >
-      sh -c "deno task setup-db && deno task migrate && deno task start"
+      sh -c "deno task setup-db && deno task start"
     volumes:
       - .env:/app/.env
       - ./certs:/app/certs

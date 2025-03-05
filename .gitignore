@@ -3,3 +3,11 @@ node_modules/
 .DS_Store
 .vscode/
 deno.lock
+
+# Prisma generated files
+/generated/
+.env*.local
+prisma/.env
+
+# Prisma migration files (temporary until you want to commit your first migration)
+prisma/migrations/

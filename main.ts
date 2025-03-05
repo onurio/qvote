@@ -3,7 +3,7 @@ import { Router } from "jsr:@oak/oak/router";
 import { Context } from "jsr:@oak/oak/context";
 import { load } from "@std/dotenv";
 import oauthRouter from "./oauth/routes.ts";
-import { closeDatabase, connectToDatabase } from "./db/connection.ts";
+import { closeDatabase, connectToDatabase } from "./db/prisma.ts";
 import { getHomePage } from "./ui/pages.ts";
 
 // Load environment variables from .env file

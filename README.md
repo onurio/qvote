@@ -35,9 +35,25 @@ by spending "voice credits" to influence the outcome.
 # Create the database
 deno task setup-db
 
-# Run database migrations
-deno task migrate
+# Generate Prisma client
+deno task prisma:generate
+
+# Create and apply migrations
+deno task prisma:dev
+
+# Optional: Seed the database with initial data
+deno task prisma:seed
+
+# Optional: View database with Prisma Studio
+deno task prisma:studio
 ```
+
+#### Migration Commands
+
+- `deno task prisma:dev` - Create a new migration and apply it
+- `deno task prisma:deploy` - Apply existing migrations to the database
+- `deno task prisma:status` - Check the status of migrations
+- `deno task prisma:reset` - Reset the database and apply all migrations
 
 ### Running the app
 
@@ -79,6 +95,8 @@ The server will start at http://localhost:8080.
 - `/` - Main server and application entry point
 - `/oauth/` - Slack OAuth integration
 - `/db/` - Database connection and models
+- `/prisma/` - Prisma schema and setup files
+- `/generated/` - Generated Prisma client (not committed to repo)
 - `/api/` - API endpoints for Slack interactions (future)
 - `Dockerfile` - Docker configuration for the application
 - `docker-compose.yml` - Production Docker Compose configuration
@@ -86,11 +104,11 @@ The server will start at http://localhost:8080.
 
 ### Database Schema
 
-The application uses PostgreSQL with the following tables:
+The application uses PostgreSQL with Prisma ORM. The schema is defined in `prisma/schema.prisma`:
 
-1. `workspaces` - Stores Slack workspace information and OAuth tokens
-2. `votes` - Stores information about quadratic votes
-3. `vote_responses` - Stores user responses to votes
+1. `Workspace` - Stores Slack workspace information and OAuth tokens
+2. `Vote` - Stores information about quadratic votes
+3. `VoteResponse` - Stores user responses to votes
 
 ### How to Create a Slack App
 

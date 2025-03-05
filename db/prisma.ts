@@ -1,4 +1,13 @@
-import sql from "./client.ts";
+// Import Prisma for Deno
+// @ts-types="generated/index.d.ts"
+import { PrismaClient } from "generated/index.js";
+
+import { load } from "@std/dotenv";
+
+await load({ export: true });
+
+// Create Prisma client instance with standard configuration
+export const prisma = new PrismaClient();
 
 /**
  * Connects to the database with retry logic for Docker environments
@@ -7,11 +16,15 @@ import sql from "./client.ts";
  * @param delay Delay between attempts in milliseconds
  * @returns Promise that resolves when connection is established
  */
-export async function connectToDatabase(retries = 5, delay = 5000) {
+export async function connectToDatabase(retries = 1, delay = 5000) {
+  console.log("Connecting to database...");
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       // Simple query to check connection
-      const result = await sql`SELECT 1 as connection_test`;
+      console.log(`Attempting database connection...`);
+      const result = await prisma.$queryRaw<
+        [{ connection_test: number }]
+      >`SELECT 1 as connection_test`;
       console.log(
         `Database connection successful: ${result[0].connection_test === 1}`,
       );
@@ -31,7 +44,7 @@ export async function connectToDatabase(retries = 5, delay = 5000) {
           "Please ensure PostgreSQL is running and .env is configured correctly.",
         );
         console.error(
-          "Run 'deno task setup-db' and 'deno task migrate' to set up the database.",
+          "Run 'deno task setup-db' and 'deno task prisma:deploy' to set up the database.",
         );
         Deno.exit(1);
       }
@@ -43,5 +56,5 @@ export async function connectToDatabase(retries = 5, delay = 5000) {
  * Closes the database connection gracefully
  */
 export async function closeDatabase() {
-  await sql.end();
+  await prisma.$disconnect();
 }
