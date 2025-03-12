@@ -1,5 +1,6 @@
-import { getVoteById, getVoteResults, recordVoteResponse } from "../../db/votes.ts";
+import { createVote, getVoteById, getVoteResults, recordVoteResponse } from "../../db/votes.ts";
 import { prisma } from "../../db/prisma.ts";
+import { createVoteBlocks } from "./blocks.ts";
 
 // Define the structure of a Slack interaction payload
 export interface SlackInteraction {
@@ -134,7 +135,7 @@ async function handleBlockActions(
 // Handle view submissions (modal form submissions)
 async function handleViewSubmission(
   payload: SlackInteraction,
-  _workspaceId: string,
+  workspaceId: string,
 ): Promise<InteractionResponse> {
   // This handles modal submissions
   console.log("Handling view submission", payload.view?.id);
@@ -149,9 +150,32 @@ async function handleViewSubmission(
     };
   }
 
+  // Get the callback_id to determine what type of submission it is
+  const callbackId = payload.view.callback_id;
+
+  if (callbackId === "create_vote_submission") {
+    return await handleCreateVoteSubmission(payload, workspaceId);
+  } else if (callbackId === "vote_submission") {
+    return await handleVoteSubmission(payload);
+  } else {
+    console.warn(`Unknown view submission type: ${callbackId}`);
+    return {
+      status: 200,
+      body: {
+        response_type: "ephemeral",
+        text: "This submission type is not supported.",
+      },
+    };
+  }
+}
+
+// Handle vote submission from an existing vote
+async function handleVoteSubmission(
+  payload: SlackInteraction,
+): Promise<InteractionResponse> {
   // Extract metadata from the view
-  const metadata = payload.view.private_metadata
-    ? JSON.parse(String(payload.view.private_metadata))
+  const metadata = payload.view!.private_metadata
+    ? JSON.parse(String(payload.view!.private_metadata))
     : {};
 
   if (!metadata.voteId) {
@@ -179,9 +203,24 @@ async function handleViewSubmission(
     }
 
     // Extract the user's vote allocations from the state values
-    const state = payload.view.state.values;
+    const state = payload.view!.state.values;
     const options = vote.options as string[];
     const userId = payload.user.id;
+
+    // Check if this user is allowed to vote
+    const allowedVoters = vote.allowedVoters as string[] | null;
+    if (allowedVoters && allowedVoters.length > 0 && !allowedVoters.includes(userId)) {
+      return {
+        status: 200,
+        body: {
+          response_action: "errors",
+          errors: {
+            option_0: "You are not authorized to vote in this poll. Only selected users can vote.",
+          },
+        },
+      };
+    }
+
     let totalUsedCredits = 0;
 
     // Process each option's credits
@@ -200,10 +239,12 @@ async function handleViewSubmission(
       }
     }
 
-    // Return success response
+    // Return success response for view submission
     return {
       status: 200,
-      body: {},
+      body: {
+        response_action: "clear",
+      },
     };
   } catch (error) {
     console.error("Error processing vote submission:", error);
@@ -216,6 +257,272 @@ async function handleViewSubmission(
         response_action: "errors",
         errors: {
           option_0: "Error processing your vote. Please try again.",
+        },
+      },
+    };
+  }
+}
+
+// Handle the vote creation submission
+async function handleCreateVoteSubmission(
+  payload: SlackInteraction,
+  workspaceId: string,
+): Promise<InteractionResponse> {
+  try {
+    console.log("Handling vote creation submission");
+
+    // Extract values from the submission
+    const state = payload.view!.state.values;
+    console.log("Submission state:", JSON.stringify(state));
+
+    const metadata = payload.view!.private_metadata
+      ? JSON.parse(String(payload.view!.private_metadata))
+      : {};
+    console.log("Metadata:", JSON.stringify(metadata));
+
+    // Extract values from the form
+    const title = state.vote_title.vote_title_input.value;
+    const description = state.vote_description?.vote_description_input?.value || "";
+    const optionsText = state.vote_options.vote_options_input.value;
+
+    // Extract selected users from the multi_users_select
+    const allowedVotersObj = state.vote_allowed_voters?.vote_allowed_voters_input;
+    let allowedVoters = null;
+
+    // The structure of selected users is different from other fields
+    // For multi-select elements, the structure is different than plain_text_input
+    if (allowedVotersObj && "selected_users" in allowedVotersObj) {
+      // Type assertion to access selected_users
+      const selectedUsers =
+        (allowedVotersObj as unknown as { selected_users: string[] }).selected_users;
+      allowedVoters = selectedUsers;
+      console.log("Selected allowed voters:", allowedVoters);
+    }
+
+    const creditsText = state.vote_credits?.vote_credits_input?.value || "100";
+    const durationText = state.vote_duration?.vote_duration_input?.value || "24h";
+
+    // Validate required fields
+    if (!title || !optionsText) {
+      return {
+        status: 200,
+        body: {
+          response_action: "errors",
+          errors: {
+            vote_title: !title ? "Title is required" : undefined,
+            vote_options: !optionsText ? "At least one option is required" : undefined,
+          },
+        },
+      };
+    }
+
+    // Parse options (split by lines)
+    const options = optionsText.split("\n").filter((option) => option.trim().length > 0);
+
+    if (options.length < 2) {
+      return {
+        status: 200,
+        body: {
+          response_action: "errors",
+          errors: {
+            vote_options: "At least two options are required",
+          },
+        },
+      };
+    }
+
+    // Parse credits
+    const credits = parseInt(creditsText, 10);
+
+    if (isNaN(credits) || credits <= 0) {
+      return {
+        status: 200,
+        body: {
+          response_action: "errors",
+          errors: {
+            vote_credits: "Credits must be a positive number",
+          },
+        },
+      };
+    }
+
+    // Parse duration (e.g., 24h, 7d)
+    const timeMatch = durationText.match(/(\d+)([hd])/);
+    let endTime: Date | null = null;
+
+    if (timeMatch && timeMatch[1] && timeMatch[2]) {
+      const value = parseInt(timeMatch[1], 10);
+      const unit = timeMatch[2];
+
+      endTime = new Date();
+      if (unit === "h") {
+        endTime.setHours(endTime.getHours() + value);
+      } else if (unit === "d") {
+        endTime.setDate(endTime.getDate() + value);
+      }
+    } else {
+      return {
+        status: 200,
+        body: {
+          response_action: "errors",
+          errors: {
+            vote_duration: "Invalid duration format. Use format like '24h' or '7d'",
+          },
+        },
+      };
+    }
+
+    // Create the vote in the database
+    console.log("Creating vote with:", {
+      workspaceId,
+      channelId: metadata.channelId,
+      creatorId: payload.user.id,
+      title,
+      description,
+      options,
+      allowedVoters,
+      creditsPerUser: credits,
+      endTime: endTime?.toISOString(),
+    });
+
+    const vote = await createVote({
+      workspaceId,
+      channelId: metadata.channelId,
+      creatorId: payload.user.id,
+      title,
+      description,
+      options,
+      allowedVoters,
+      creditsPerUser: credits,
+      endTime,
+    });
+
+    console.log("Vote created successfully:", vote.id);
+
+    // Get the token to post a message to the channel
+    const workspaceToken = await getWorkspaceToken(workspaceId);
+    if (!workspaceToken) {
+      return {
+        status: 200,
+        body: {
+          text: "Workspace not found or authentication error.",
+          response_type: "ephemeral",
+        },
+      };
+    }
+
+    // Create the blocks for the vote message
+    const blocks = JSON.stringify(createVoteBlocks(vote, ""));
+
+    // Post the vote message to the channel
+    console.log("Posting message to channel:", metadata.channelId);
+
+    // First try to join the channel
+    try {
+      const joinResponse = await fetch("https://slack.com/api/conversations.join", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          Authorization: `Bearer ${workspaceToken}`,
+        },
+        body: JSON.stringify({
+          channel: metadata.channelId,
+        }),
+      });
+
+      const joinResult = await joinResponse.json();
+      console.log("Join channel result:", JSON.stringify(joinResult));
+    } catch (joinError) {
+      console.warn("Failed to join channel:", joinError);
+      // Continue anyway, as the bot might already be in the channel
+    }
+
+    // Now post the message
+    const postResponse = await fetch("https://slack.com/api/chat.postMessage", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        Authorization: `Bearer ${workspaceToken}`,
+      },
+      body: JSON.stringify({
+        channel: metadata.channelId,
+        blocks,
+        text: `New vote: ${title}`, // Fallback text if blocks don't render
+      }),
+    });
+
+    const postResult = await postResponse.json();
+    console.log("Post message result:", JSON.stringify(postResult));
+
+    // If we couldn't post to the channel, send an ephemeral message to the user
+    if (!postResult.ok) {
+      console.warn(`Failed to post message: ${postResult.error}`);
+
+      // Try to send an ephemeral message to the user
+      try {
+        await fetch("https://slack.com/api/chat.postEphemeral", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            Authorization: `Bearer ${workspaceToken}`,
+          },
+          body: JSON.stringify({
+            channel: metadata.channelId,
+            user: payload.user.id,
+            text:
+              `Your vote "${title}" was created, but I couldn't post it to the channel. Make sure to invite me to the channel first with /invite @QVote.`,
+          }),
+        });
+      } catch (ephemeralError) {
+        console.error("Failed to send ephemeral message:", ephemeralError);
+      }
+    }
+
+    // For view_submission, we need to provide a proper response
+    return {
+      status: 200,
+      body: {
+        response_action: "update",
+        view: {
+          type: "modal",
+          title: {
+            type: "plain_text",
+            text: "Success",
+            emoji: true,
+          },
+          blocks: [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `:white_check_mark: Vote "${title}" created successfully!`,
+              },
+            },
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: postResult.ok
+                  ? "The vote has been posted to the channel."
+                  : "The vote was created but couldn't be posted to the channel. Make sure to invite the bot to the channel with `/invite @QVote`.",
+              },
+            },
+          ],
+        },
+      },
+    };
+  } catch (error) {
+    console.error("Error processing vote creation:", error);
+
+    // Return an error that will be displayed in the modal
+    return {
+      status: 200,
+      body: {
+        response_action: "errors",
+        errors: {
+          vote_title: `Error creating vote: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
         },
       },
     };
@@ -483,6 +790,217 @@ async function getWorkspaceToken(workspaceId: string): Promise<string | null> {
   } catch (error) {
     console.error("Error getting workspace token:", error);
     return null;
+  }
+}
+
+// Handle opening a vote creation modal
+export async function openVoteCreationModal(
+  triggerId: string,
+  workspaceId: string,
+  channelId: string,
+  userId: string,
+): Promise<InteractionResponse> {
+  try {
+    // Get workspace token
+    const workspaceToken = await getWorkspaceToken(workspaceId);
+    if (!workspaceToken) {
+      return {
+        status: 200,
+        body: {
+          text: "Workspace not found or authentication error.",
+          response_type: "ephemeral",
+        },
+      };
+    }
+
+    // Create the modal view
+    const view = {
+      type: "modal",
+      callback_id: "create_vote_submission",
+      title: {
+        type: "plain_text",
+        text: "Create Vote",
+        emoji: true,
+      },
+      submit: {
+        type: "plain_text",
+        text: "Create",
+        emoji: true,
+      },
+      close: {
+        type: "plain_text",
+        text: "Cancel",
+        emoji: true,
+      },
+      blocks: [
+        {
+          type: "input",
+          block_id: "vote_title",
+          element: {
+            type: "plain_text_input",
+            action_id: "vote_title_input",
+            placeholder: {
+              type: "plain_text",
+              text: "Enter vote title",
+            },
+          },
+          label: {
+            type: "plain_text",
+            text: "Title",
+            emoji: true,
+          },
+        },
+        {
+          type: "input",
+          block_id: "vote_description",
+          optional: true,
+          element: {
+            type: "plain_text_input",
+            action_id: "vote_description_input",
+            multiline: true,
+            placeholder: {
+              type: "plain_text",
+              text: "Optional description",
+            },
+          },
+          label: {
+            type: "plain_text",
+            text: "Description",
+            emoji: true,
+          },
+        },
+        {
+          type: "input",
+          block_id: "vote_options",
+          element: {
+            type: "plain_text_input",
+            action_id: "vote_options_input",
+            multiline: true,
+            placeholder: {
+              type: "plain_text",
+              text: "Enter each option on a new line",
+            },
+          },
+          label: {
+            type: "plain_text",
+            text: "Options",
+            emoji: true,
+          },
+        },
+        {
+          type: "input",
+          block_id: "vote_allowed_voters",
+          optional: true,
+          element: {
+            type: "multi_users_select",
+            action_id: "vote_allowed_voters_input",
+            placeholder: {
+              type: "plain_text",
+              text: "Select users allowed to vote",
+              emoji: true,
+            },
+          },
+          label: {
+            type: "plain_text",
+            text: "Allowed Voters",
+            emoji: true,
+          },
+          hint: {
+            type: "plain_text",
+            text: "Leave empty to allow everyone to vote",
+            emoji: true,
+          },
+        },
+        {
+          type: "input",
+          block_id: "vote_credits",
+          optional: true,
+          element: {
+            type: "plain_text_input",
+            action_id: "vote_credits_input",
+            placeholder: {
+              type: "plain_text",
+              text: "100",
+            },
+            initial_value: "100",
+          },
+          label: {
+            type: "plain_text",
+            text: "Credits per User",
+            emoji: true,
+          },
+        },
+        {
+          type: "input",
+          block_id: "vote_duration",
+          optional: true,
+          element: {
+            type: "plain_text_input",
+            action_id: "vote_duration_input",
+            placeholder: {
+              type: "plain_text",
+              text: "24h",
+            },
+            initial_value: "24h",
+          },
+          label: {
+            type: "plain_text",
+            text: "Duration (e.g., 24h, 7d)",
+            emoji: true,
+          },
+          hint: {
+            type: "plain_text",
+            text: "Use h for hours, d for days",
+            emoji: true,
+          },
+        },
+      ],
+      private_metadata: JSON.stringify({
+        channelId,
+        userId,
+      }),
+    };
+
+    // Open the modal with Slack API
+    const response = await fetch("https://slack.com/api/views.open", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        Authorization: `Bearer ${workspaceToken}`,
+      },
+      body: JSON.stringify({
+        trigger_id: triggerId,
+        view,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!result.ok) {
+      console.error("Error opening vote creation modal:", result.error);
+      return {
+        status: 200,
+        body: {
+          text: `Error opening vote creation modal: ${result.error}`,
+          response_type: "ephemeral",
+        },
+      };
+    }
+
+    // Successfully opened modal
+    return {
+      status: 200,
+      body: {},
+    };
+  } catch (error) {
+    console.error("Error opening vote creation modal:", error);
+    return {
+      status: 200,
+      body: {
+        text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        response_type: "ephemeral",
+      },
+    };
   }
 }
 

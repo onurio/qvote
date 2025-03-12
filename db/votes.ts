@@ -8,6 +8,7 @@ interface CreateVoteParams {
   title: string;
   description?: string;
   options: string[];
+  allowedVoters?: string[] | null; // List of user IDs allowed to vote (null means everyone can vote)
   creditsPerUser?: number;
   endTime?: Date | null;
 }
@@ -21,6 +22,7 @@ export async function createVote(params: CreateVoteParams) {
     title,
     description,
     options,
+    allowedVoters = null,
     creditsPerUser = 100,
     endTime = null,
   } = params;
@@ -35,6 +37,7 @@ export async function createVote(params: CreateVoteParams) {
       title,
       description,
       options: options, // Prisma will serialize this to JSON
+      allowedVoters: allowedVoters === null ? { setValue: null } : allowedVoters, // Handle null value differently for Prisma
       creditsPerUser,
       endTime,
       createdAt: now,

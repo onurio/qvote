@@ -1,5 +1,6 @@
-import { Vote, Workspace } from "../../node_modules/generated/index.d.ts";
-import { createVote } from "../../db/votes.ts";
+import { Workspace } from "../../node_modules/generated/index.d.ts";
+import { openVoteCreationModal } from "./interactions.ts";
+import { SlackBlock } from "./blocks.ts";
 
 // Define the structure of a Slack slash command request
 export interface SlackRequest {
@@ -13,11 +14,6 @@ export interface SlackRequest {
 }
 
 // Response structure for command handling
-// Slack block types
-export interface SlackBlock {
-  type: string;
-  [key: string]: unknown;
-}
 
 export interface CommandResponse {
   status: number;
@@ -53,77 +49,41 @@ async function handleQVoteCommand(
   request: SlackRequest,
   workspace: Workspace,
 ): Promise<CommandResponse> {
-  // Parse the command text
-  const commandArgs = parseQVoteCommand(request.text);
+  try {
+    // Open a modal for the user to enter vote details
+    const modalResponse = await openVoteCreationModal(
+      request.triggerId,
+      workspace.id,
+      request.channelId,
+      request.userId,
+    );
 
-  if (!commandArgs.title || commandArgs.options.length === 0) {
-    // Return usage information if arguments are insufficient
+    // If there was an error opening the modal, return it to the user
+    if (modalResponse.body.text) {
+      return {
+        status: modalResponse.status,
+        body: {
+          response_type: "ephemeral",
+          text: modalResponse.body.text as string,
+        },
+      };
+    }
+
+    // Modal opened successfully, return empty ephemeral message
     return {
       status: 200,
       body: {
         response_type: "ephemeral",
-        text:
-          'Usage: /qvote "Title" "Option 1" "Option 2" ["Option 3"...] [--desc "Description"] [--credits 100] [--time 24h]',
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: "*QVote Command Help*\n\nCreate a new vote with the following format:",
-            },
-          },
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text:
-                '`/qvote "Title" "Option 1" "Option 2" ["Option 3"...] [--desc "Description"] [--credits 100] [--time 24h]`',
-            },
-          },
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text:
-                "• Title and options must be in quotes\n• --desc: Optional description (in quotes)\n• --credits: Optional credits per user (default: 100)\n• --time: Optional duration (e.g., 24h, 7d)",
-            },
-          },
-        ],
-      },
-    };
-  }
-
-  try {
-    // Create the vote in the database
-    const vote = await createVote({
-      workspaceId: workspace.id,
-      channelId: request.channelId,
-      creatorId: request.userId,
-      title: commandArgs.title,
-      description: commandArgs.description,
-      options: commandArgs.options,
-      creditsPerUser: commandArgs.credits,
-      endTime: commandArgs.endTime,
-    });
-
-    // Craft the Slack message blocks for the vote
-    const blocks = createVoteBlocks(vote, workspace.botUserId);
-
-    // Respond to the user
-    return {
-      status: 200,
-      body: {
-        response_type: "in_channel", // Make the vote visible to the channel
-        blocks: blocks,
+        text: "",
       },
     };
   } catch (error) {
-    console.error("Error creating vote:", error);
+    console.error("Error opening vote creation modal:", error);
     return {
       status: 200,
       body: {
         response_type: "ephemeral",
-        text: `Error creating vote: ${error instanceof Error ? error.message : String(error)}`,
+        text: `Error: ${error instanceof Error ? error.message : String(error)}`,
       },
     };
   }
@@ -188,95 +148,4 @@ export function parseQVoteCommand(text: string) {
   }
 
   return result;
-}
-
-// Create Slack blocks for displaying a vote
-export function createVoteBlocks(vote: Vote, _botUserId: string) {
-  const optionsText = (vote.options as unknown as string[]).map((option: string, index: number) =>
-    `*${index + 1}.* ${option}`
-  ).join("\n");
-
-  const timeInfo = vote.endTime
-    ? `Voting ends: <!date^${
-      Math.floor(new Date(vote.endTime).getTime() / 1000)
-    }^{date_short_pretty} at {time}|${new Date(vote.endTime).toLocaleString()}>`
-    : "No end time set";
-
-  // Create blocks array and filter out nulls before returning to match SlackBlock[] type
-  const blocks: SlackBlock[] = [
-    {
-      type: "header",
-      text: {
-        type: "plain_text",
-        text: `:ballot_box: ${vote.title}`,
-        emoji: true,
-      },
-    },
-  ];
-
-  // Add description block if it exists
-  if (vote.description) {
-    blocks.push({
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: vote.description,
-      },
-    });
-  }
-
-  // Add remaining blocks
-  blocks.push({
-    type: "section",
-    text: {
-      type: "mrkdwn",
-      text: `*Options:*\n${optionsText}`,
-    },
-  });
-
-  blocks.push({
-    type: "section",
-    text: {
-      type: "mrkdwn",
-      text: `*Credits per user:* ${vote.creditsPerUser}\n${timeInfo}`,
-    },
-  });
-
-  blocks.push({
-    type: "actions",
-    elements: [
-      {
-        type: "button",
-        text: {
-          type: "plain_text",
-          text: "Vote",
-          emoji: true,
-        },
-        value: `vote_${vote.id}`,
-        action_id: "open_vote_modal",
-      },
-      {
-        type: "button",
-        text: {
-          type: "plain_text",
-          text: "Results",
-          emoji: true,
-        },
-        value: `results_${vote.id}`,
-        action_id: "show_vote_results",
-      },
-    ],
-  });
-
-  blocks.push({
-    type: "context",
-    elements: [
-      {
-        type: "mrkdwn",
-        text: `Created by <@${vote.creatorId}> | Vote ID: ${vote.id}`,
-      },
-    ],
-  });
-
-  return blocks;
 }

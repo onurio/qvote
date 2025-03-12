@@ -32,6 +32,7 @@ model Vote {
   title          String
   description    String?
   options        Json
+  allowedVoters  Json?          @map("allowed_voters") // List of user IDs allowed to vote (null means everyone can vote)
   creditsPerUser Int            @default(100) @map("credits_per_user")
   startTime      DateTime       @default(now()) @map("start_time") @db.Timestamptz(6)
   endTime        DateTime?      @map("end_time") @db.Timestamptz(6)
