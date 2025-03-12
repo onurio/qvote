@@ -1,23 +1,52 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { Application } from "jsr:@oak/oak";
-import router from "./routes.ts";
+import router, {
+  AuthService,
+  ExchangeCodeForTokenType,
+  GenerateAuthUrlType,
+  GetSuccessHtmlType,
+  setAuthService,
+  setSaveWorkspaceFunc,
+} from "./routes.ts";
 
-// No need to mock DB for tests
+// Create mocked auth services
+const generateAuthUrl: GenerateAuthUrlType = () =>
+  "https://slack.com/oauth/v2/authorize?client_id=test_client_id&scope=commands%20chat:write%20channels:read%20channels:history&redirect_uri=http://localhost:8080/oauth/callback&state=test-uuid-123";
 
-// Mock environment variables
-Deno.env.set("SLACK_CLIENT_ID", "test_client_id");
-Deno.env.set("SLACK_CLIENT_SECRET", "test_client_secret");
-Deno.env.set("SLACK_REDIRECT_URI", "http://localhost:8080/oauth/callback");
+const exchangeCodeForToken: ExchangeCodeForTokenType = async (_code: string) => {
+  // Add a minimal delay to make the async function actually await something
+  await new Promise((resolve) => setTimeout(resolve, 0));
 
-// Mock crypto.randomUUID for consistent testing
-const originalRandomUUID = crypto.randomUUID;
-// @ts-ignore: We need to override this for testing
-crypto.randomUUID = () => "test-uuid-123";
+  return {
+    success: true,
+    data: {
+      accessToken: "xoxb-test-token",
+      teamId: "T12345",
+      teamName: "Test Team",
+      botUserId: "U12345",
+    },
+  };
+};
 
-// Original fetch function
-const originalFetch = globalThis.fetch;
+const getSuccessHtml: GetSuccessHtmlType = () => `
+  <!DOCTYPE html>
+  <html>
+    <head><title>Installation Successful</title></head>
+    <body>
+      <h1>QVote installed successfully!</h1>
+      <p>You can close this window and return to Slack.</p>
+    </body>
+  </html>
+`;
 
-// Create test app with mocked request handling
+// Create mock service object
+const mockServices: AuthService = {
+  generateAuthUrl,
+  exchangeCodeForToken,
+  getSuccessHtml,
+};
+
+// Create test app
 const createTestApp = () => {
   const app = new Application();
   app.use(router.routes());
@@ -26,6 +55,9 @@ const createTestApp = () => {
 };
 
 Deno.test("OAuth authorize route redirects to Slack", async () => {
+  // Set mock services for this test
+  setAuthService(mockServices);
+
   const app = createTestApp();
   const resp = (await app.handle(
     new Request("http://localhost:8080/oauth/authorize"),
@@ -39,6 +71,10 @@ Deno.test("OAuth authorize route redirects to Slack", async () => {
 });
 
 Deno.test("OAuth callback route handles missing code parameter", async () => {
+  // We don't need to mock validateCallbackParams anymore since it's now in middleware
+  // Just use the default mock services
+  setAuthService(mockServices);
+
   const app = createTestApp();
   const resp = (await app.handle(
     new Request("http://localhost:8080/oauth/callback?state=test-state"),
@@ -50,6 +86,10 @@ Deno.test("OAuth callback route handles missing code parameter", async () => {
 });
 
 Deno.test("OAuth callback route handles missing state parameter", async () => {
+  // We don't need to mock validateCallbackParams anymore since it's now in middleware
+  // Just use the default mock services
+  setAuthService(mockServices);
+
   const app = createTestApp();
   const resp = (await app.handle(
     new Request("http://localhost:8080/oauth/callback?code=test_code"),
@@ -63,20 +103,15 @@ Deno.test("OAuth callback route handles missing state parameter", async () => {
 Deno.test({
   name: "OAuth callback route handles successful authorization",
   fn: async () => {
-    // Mock fetch to return a successful response
-    globalThis.fetch = () => {
-      return Promise.resolve(
-        new Response(
-          JSON.stringify({
-            ok: true,
-            access_token: "xoxb-test-token",
-            team: { id: "T12345", name: "Test Team" },
-            bot_user_id: "U12345",
-          }),
-          { status: 200 },
-        ),
-      );
-    };
+    // Set default mock services with successful response
+    setAuthService(mockServices);
+
+    // Mock save workspace to throw test error
+    setSaveWorkspaceFunc(async (_teamId, _teamName, _accessToken, _botUserId) => {
+      // Add a minimal delay to make the async function actually await something
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      throw new Error("Test environment");
+    });
 
     const app = createTestApp();
     const resp = (await app.handle(
@@ -88,9 +123,6 @@ Deno.test({
     assertEquals(resp.status, 200);
     const text = await resp.text();
     assertStringIncludes(text, "QVote installed successfully");
-
-    // Restore original fetch
-    globalThis.fetch = originalFetch;
   },
   sanitizeResources: false,
 });
@@ -98,18 +130,20 @@ Deno.test({
 Deno.test({
   name: "OAuth callback route handles Slack API error",
   fn: async () => {
-    // Mock fetch to return an error response
-    globalThis.fetch = () => {
-      return Promise.resolve(
-        new Response(
-          JSON.stringify({
-            ok: false,
-            error: "invalid_code",
-          }),
-          { status: 200 },
-        ),
-      );
+    // Create a new mock service with failed token exchange
+    const errorExchangeCodeForToken: ExchangeCodeForTokenType = async (_code: string) => {
+      // Add a minimal delay to make the async function actually await something
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      return {
+        success: false,
+        error: "invalid_code",
+      };
     };
+
+    setAuthService({
+      ...mockServices,
+      exchangeCodeForToken: errorExchangeCodeForToken,
+    });
 
     const app = createTestApp();
     const resp = (await app.handle(
@@ -121,9 +155,6 @@ Deno.test({
     assertEquals(resp.status, 500);
     const text = await resp.text();
     assertEquals(text, "OAuth failed: invalid_code");
-
-    // Restore original fetch
-    globalThis.fetch = originalFetch;
   },
   sanitizeResources: false,
 });
@@ -132,8 +163,7 @@ Deno.test({
 Deno.test({
   name: "Clean up",
   fn() {
-    crypto.randomUUID = originalRandomUUID;
-    globalThis.fetch = originalFetch;
+    // No need to restore mocks since they're local to the test
   },
   sanitizeResources: false,
   sanitizeOps: false,

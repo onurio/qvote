@@ -3,6 +3,7 @@ import { Router } from "jsr:@oak/oak/router";
 import { Context } from "jsr:@oak/oak/context";
 import { load } from "@std/dotenv";
 import oauthRouter from "./oauth/routes.ts";
+import slackRouter from "./slack/routes.ts";
 import { closeDatabase, connectToDatabase } from "./db/prisma.ts";
 import { getHomePage } from "./ui/pages.ts";
 
@@ -30,7 +31,7 @@ async function errorHandlingMiddleware(
 }
 
 function setupServer() {
-  // Setup router
+  // Setup root router for basic routes
   const router = new Router();
   router.get("/", async (ctx) => {
     ctx.response.body = await getHomePage();
@@ -39,15 +40,22 @@ function setupServer() {
   // Create app
   const app = new Application();
 
-  // Add middleware
+  // Add global middleware
   app.use(loggingMiddleware);
   app.use(errorHandlingMiddleware);
 
   // Register all routers
+  // Root router
   app.use(router.routes());
   app.use(router.allowedMethods());
+
+  // OAuth routes (for authentication)
   app.use(oauthRouter.routes());
   app.use(oauthRouter.allowedMethods());
+
+  // Slack API routes
+  app.use(slackRouter.routes());
+  app.use(slackRouter.allowedMethods());
 
   return app;
 }

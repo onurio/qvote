@@ -1,98 +1,116 @@
 import { Router } from "jsr:@oak/oak/router";
+import { validateOAuthCallback } from "../middleware/oauth.ts";
+
+// Define types for auth service functions for testing
+export type GenerateAuthUrlType = () => string;
+export type ExchangeCodeForTokenType = (code: string) => Promise<{
+  success: boolean;
+  data?: {
+    accessToken: string;
+    teamId: string;
+    teamName: string;
+    botUserId: string;
+  };
+  error?: string;
+}>;
+export type GetSuccessHtmlType = () => string;
+
+// Service functions - can be overridden for testing
+export interface AuthService {
+  generateAuthUrl: GenerateAuthUrlType | null;
+  exchangeCodeForToken: ExchangeCodeForTokenType | null;
+  getSuccessHtml: GetSuccessHtmlType | null;
+}
+
+// Initialize the auth service
+let authService: AuthService = {
+  generateAuthUrl: null,
+  exchangeCodeForToken: null,
+  getSuccessHtml: null,
+};
+
+// Load service functions
+(async () => {
+  const auth = await import("./services/auth.ts");
+  authService.generateAuthUrl = auth.generateAuthUrl;
+  authService.exchangeCodeForToken = auth.exchangeCodeForToken;
+  authService.getSuccessHtml = auth.getSuccessHtml;
+})();
+
+// Database function
+let saveWorkspaceFunc:
+  | ((teamId: string, teamName: string, accessToken: string, botUserId: string) => Promise<unknown>)
+  | null = null;
+
+// Load the database function
+(async () => {
+  try {
+    const { saveWorkspace } = await import("../db/workspace.ts");
+    saveWorkspaceFunc = saveWorkspace;
+  } catch (err) {
+    console.error("Error loading saveWorkspace:", err);
+  }
+})();
+
+// Expose functions to override services for testing
+export function setAuthService(services: AuthService) {
+  authService = services;
+}
+
+export function setSaveWorkspaceFunc(func: typeof saveWorkspaceFunc) {
+  saveWorkspaceFunc = func;
+}
 
 const router = new Router();
 
 // Redirect users to Slack's OAuth authorization page
 router.get("/oauth/authorize", (ctx) => {
-  // Get environment variables within the handler to ensure they're fresh
-  const clientId = Deno.env.get("SLACK_CLIENT_ID") || "";
-  const redirectUri = Deno.env.get("SLACK_REDIRECT_URI") || "http://localhost:8080/oauth/callback";
+  if (!authService.generateAuthUrl) {
+    throw new Error("Auth service not initialized");
+  }
 
-  const slackAuthUrl = new URL("https://slack.com/oauth/v2/authorize");
-  slackAuthUrl.searchParams.set("client_id", clientId);
-  slackAuthUrl.searchParams.set("scope", "commands chat:write channels:read");
-  slackAuthUrl.searchParams.set("redirect_uri", redirectUri);
-  slackAuthUrl.searchParams.set("state", crypto.randomUUID()); // Anti-CSRF token
-
-  ctx.response.redirect(slackAuthUrl.toString());
+  const authUrl = authService.generateAuthUrl();
+  ctx.response.redirect(authUrl);
 });
 
+// Already imported at the top
+
 // Handle the OAuth callback from Slack
-router.get("/oauth/callback", async (ctx) => {
-  const url = new URL(ctx.request.url);
-  const params = url.searchParams;
-  const code = params.get("code");
-
-  // Verify state parameter (anti-CSRF)
-  // In a complete implementation, you would validate this against a stored value
-  if (!params.get("state")) {
-    ctx.response.status = 400;
-    ctx.response.body = "Invalid request: missing state parameter";
-    return;
+router.get("/oauth/callback", validateOAuthCallback, async (ctx) => {
+  if (!authService.exchangeCodeForToken || !authService.getSuccessHtml) {
+    throw new Error("Auth service not initialized");
   }
 
-  if (!code) {
-    ctx.response.status = 400;
-    ctx.response.body = "Invalid request: missing authorization code";
-    return;
-  }
+  // At this point, the middleware has already validated the parameters
+  // and attached the code and state to ctx.state.oauth
+  const { code } = ctx.state.oauth;
 
   try {
-    // Get environment variables within the handler to ensure they're fresh
-    const clientId = Deno.env.get("SLACK_CLIENT_ID") || "";
-    const clientSecret = Deno.env.get("SLACK_CLIENT_SECRET") || "";
-    const redirectUri = Deno.env.get("SLACK_REDIRECT_URI") ||
-      "http://localhost:8080/oauth/callback";
+    // Exchange code for token
+    const tokenResult = await authService.exchangeCodeForToken(code);
 
-    // Exchange code for access token
-    const response = await fetch("https://slack.com/api/oauth.v2.access", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        code: code,
-        redirect_uri: redirectUri,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!data.ok) {
-      console.error("Slack OAuth error:", data.error);
+    if (!tokenResult.success) {
       ctx.response.status = 500;
-      ctx.response.body = `OAuth failed: ${data.error}`;
+      ctx.response.body = `OAuth failed: ${tokenResult.error}`;
       return;
     }
 
-    // Save workspace data in the database
-    const accessToken = data.access_token;
-    const teamId = data.team.id;
-    const teamName = data.team.name || "Unknown Team";
-    const botUserId = data.bot_user_id || "Unknown Bot";
+    // Save workspace data to database
+    const { accessToken, teamId, teamName, botUserId } = tokenResult.data!;
 
-    // Only import and use saveWorkspace in non-test environments
     try {
-      const { saveWorkspace } = await import("../db/workspace.ts");
-      await saveWorkspace(teamId, teamName, accessToken, botUserId);
-      console.log(`Workspace saved: ${teamName} (${teamId})`);
+      if (saveWorkspaceFunc) {
+        await saveWorkspaceFunc(teamId, teamName, accessToken, botUserId);
+        console.log(`Workspace saved: ${teamName} (${teamId})`);
+      } else {
+        console.log("Save workspace function not available");
+      }
     } catch (_err) {
       console.log("Test environment detected, skipping database save");
     }
 
-    // Success page
-    ctx.response.body = `
-      <!DOCTYPE html>
-      <html>
-        <head><title>Installation Successful</title></head>
-        <body>
-          <h1>QVote installed successfully!</h1>
-          <p>You can close this window and return to Slack.</p>
-        </body>
-      </html>
-    `;
+    // Return success page
+    ctx.response.body = authService.getSuccessHtml();
   } catch (error) {
     console.error("Error during OAuth flow:", error);
     ctx.response.status = 500;
