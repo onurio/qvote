@@ -145,3 +145,14 @@ export async function getVoteResults(voteId: string) {
     results,
   };
 }
+
+// End a vote (set isEnded to true)
+export async function endVote(voteId: string) {
+  return await prisma.vote.update({
+    where: { id: voteId },
+    data: {
+      isEnded: true,
+      updatedAt: new Date(),
+    },
+  });
+}

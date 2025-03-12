@@ -12,11 +12,17 @@ export function createVoteBlocks(vote: Vote, _botUserId: string) {
     `*${index + 1}.* ${option}`
   ).join("\n");
 
-  const timeInfo = vote.endTime
-    ? `Voting ends: <!date^${
+  // Display status based on isEnded flag
+  let statusInfo;
+  if (vote.isEnded) {
+    statusInfo = "*Status:* :checkered_flag: Voting has ended";
+  } else if (vote.endTime) {
+    statusInfo = `*Status:* :hourglass: Voting ends: <!date^${
       Math.floor(new Date(vote.endTime).getTime() / 1000)
-    }^{date_short_pretty} at {time}|${new Date(vote.endTime).toLocaleString()}>`
-    : "No end time set";
+    }^{date_short_pretty} at {time}|${new Date(vote.endTime).toLocaleString()}>`;
+  } else {
+    statusInfo = "*Status:* :hourglass: No end time set";
+  }
 
   // Create blocks array and filter out nulls before returning to match SlackBlock[] type
   const blocks: SlackBlock[] = [
@@ -50,8 +56,8 @@ export function createVoteBlocks(vote: Vote, _botUserId: string) {
     },
   });
 
-  // Display credits per user and time info
-  let infoText = `*Credits per user:* ${vote.creditsPerUser}\n${timeInfo}`;
+  // Display credits per user and status info
+  let infoText = `*Credits per user:* ${vote.creditsPerUser}\n${statusInfo}`;
 
   // Add information about allowed voters if restrictions exist
   const allowedVoters = vote.allowedVoters as string[] | null;
@@ -67,30 +73,71 @@ export function createVoteBlocks(vote: Vote, _botUserId: string) {
     },
   });
 
+  // Define action buttons based on vote status
+  const actionElements = [];
+
+  // Only show Vote button if voting is still open
+  if (!vote.isEnded) {
+    actionElements.push({
+      type: "button",
+      text: {
+        type: "plain_text",
+        text: "Vote",
+        emoji: true,
+      },
+      value: `vote_${vote.id}`,
+      action_id: "open_vote_modal",
+    });
+  }
+
+  // Always show Results button
+  actionElements.push({
+    type: "button",
+    text: {
+      type: "plain_text",
+      text: "Results",
+      emoji: true,
+    },
+    value: `results_${vote.id}`,
+    action_id: "show_vote_results",
+  });
+
+  // Add End Vote button for creator only if vote is not ended
+  if (!vote.isEnded) {
+    actionElements.push({
+      type: "button",
+      text: {
+        type: "plain_text",
+        text: "End Vote",
+        emoji: true,
+      },
+      value: `end_${vote.id}`,
+      action_id: "end_vote",
+      confirm: {
+        title: {
+          type: "plain_text",
+          text: "End this vote?",
+        },
+        text: {
+          type: "mrkdwn",
+          text:
+            "This will end the voting period immediately. All votes cast so far will be counted, but no new votes will be accepted. This action cannot be undone.",
+        },
+        confirm: {
+          type: "plain_text",
+          text: "End Vote",
+        },
+        deny: {
+          type: "plain_text",
+          text: "Cancel",
+        },
+      },
+    });
+  }
+
   blocks.push({
     type: "actions",
-    elements: [
-      {
-        type: "button",
-        text: {
-          type: "plain_text",
-          text: "Vote",
-          emoji: true,
-        },
-        value: `vote_${vote.id}`,
-        action_id: "open_vote_modal",
-      },
-      {
-        type: "button",
-        text: {
-          type: "plain_text",
-          text: "Results",
-          emoji: true,
-        },
-        value: `results_${vote.id}`,
-        action_id: "show_vote_results",
-      },
-    ],
+    elements: actionElements,
   });
 
   blocks.push({

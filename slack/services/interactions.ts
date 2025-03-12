@@ -1,4 +1,10 @@
-import { createVote, getVoteById, getVoteResults, recordVoteResponse } from "../../db/votes.ts";
+import {
+  createVote,
+  endVote,
+  getVoteById,
+  getVoteResults,
+  recordVoteResponse,
+} from "../../db/votes.ts";
 import { prisma } from "../../db/prisma.ts";
 import { createVoteBlocks } from "./blocks.ts";
 
@@ -120,6 +126,8 @@ async function handleBlockActions(
       return await handleOpenVoteModal(action, payload, workspaceId);
     case "show_vote_results":
       return await handleShowVoteResults(action, payload, workspaceId);
+    case "end_vote":
+      return await handleEndVote(action, payload, workspaceId);
     default:
       console.warn(`Unknown action: ${action.action_id}`);
       return {
@@ -216,6 +224,19 @@ async function handleVoteSubmission(
           response_action: "errors",
           errors: {
             option_0: "You are not authorized to vote in this poll. Only selected users can vote.",
+          },
+        },
+      };
+    }
+
+    // Check if the vote has ended
+    if (vote.isEnded) {
+      return {
+        status: 200,
+        body: {
+          response_action: "errors",
+          errors: {
+            option_0: "This vote has ended and is no longer accepting responses.",
           },
         },
       };
@@ -562,6 +583,18 @@ async function handleOpenVoteModal(
       };
     }
 
+    // Check if the vote has ended
+    if (vote.isEnded) {
+      return {
+        status: 200,
+        body: {
+          text:
+            "This vote has ended and is no longer accepting responses. You can still view the results.",
+          response_type: "ephemeral",
+        },
+      };
+    }
+
     // Get the workspace to get the access token
     const workspaceToken = await getWorkspaceToken(workspaceId);
     if (!workspaceToken) {
@@ -790,6 +823,158 @@ async function getWorkspaceToken(workspaceId: string): Promise<string | null> {
   } catch (error) {
     console.error("Error getting workspace token:", error);
     return null;
+  }
+}
+
+// Handle ending a vote
+async function handleEndVote(
+  action: NonNullable<SlackInteraction["actions"]>[number],
+  payload: SlackInteraction,
+  workspaceId: string,
+): Promise<InteractionResponse> {
+  console.log("Handling end vote action:", action);
+
+  if (!action.value) {
+    return {
+      status: 200,
+      body: {
+        text: "No vote ID was provided.",
+        response_type: "ephemeral",
+      },
+    };
+  }
+
+  // Extract vote ID from the action value (format: "end_<id>")
+  const voteId = action.value.replace("end_", "");
+
+  try {
+    // Get the vote from the database
+    const vote = await getVoteById(voteId);
+
+    if (!vote) {
+      return {
+        status: 200,
+        body: {
+          text: "Vote not found.",
+          response_type: "ephemeral",
+        },
+      };
+    }
+
+    // Check if the user is the creator of the vote
+    if (vote.creatorId !== payload.user.id) {
+      return {
+        status: 200,
+        body: {
+          text: "Only the creator of the vote can end it.",
+          response_type: "ephemeral",
+        },
+      };
+    }
+
+    // End the vote in the database
+    await endVote(voteId);
+
+    // Get results to show after ending vote
+    const results = await getVoteResults(voteId);
+
+    // Get workspace token to update the original message
+    const workspaceToken = await getWorkspaceToken(workspaceId);
+    if (!workspaceToken) {
+      return {
+        status: 200,
+        body: {
+          text: "Workspace not found or authentication error.",
+          response_type: "ephemeral",
+        },
+      };
+    }
+
+    // Update the original message with the vote blocks (which will now show it as ended)
+    const updatedBlocks = JSON.stringify(createVoteBlocks(results.vote, ""));
+
+    try {
+      // Need to handle the message property which might not exist in all payload types
+      const messageTs = (payload as unknown as { message?: { ts: string } }).message?.ts;
+      if (!messageTs) {
+        console.warn("Could not find message timestamp in payload");
+        return {
+          status: 200,
+          body: {
+            text: "Vote has been ended, but the original message couldn't be updated.",
+            response_type: "ephemeral",
+          },
+        };
+      }
+
+      const updateResponse = await fetch("https://slack.com/api/chat.update", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          Authorization: `Bearer ${workspaceToken}`,
+        },
+        body: JSON.stringify({
+          channel: payload.channel.id,
+          ts: messageTs, // The timestamp of the original message
+          blocks: updatedBlocks,
+          text: `Vote ended: ${vote.title}`, // Fallback text
+        }),
+      });
+
+      const updateResult = await updateResponse.json();
+      console.log("Update message result:", JSON.stringify(updateResult));
+
+      // If we couldn't update the message, log error
+      if (!updateResult.ok) {
+        console.warn(`Failed to update message: ${updateResult.error}`);
+      }
+    } catch (updateError) {
+      console.error("Error updating message:", updateError);
+    }
+
+    // Format results for display
+    const { vote: updatedVote, results: voteResults } = results;
+
+    // Calculate total votes (square root of credits) for quadratic voting
+    const totalVotes = voteResults.reduce(
+      (sum, r) => sum + Math.sqrt(r.totalCredits),
+      0,
+    );
+
+    // Format results text
+    const resultsText = voteResults
+      .map((r, i) => {
+        // Calculate actual votes (square root of credits)
+        const actualVotes = Math.round(Math.sqrt(r.totalCredits) * 10) / 10;
+        const percentage = totalVotes > 0
+          ? Math.round((Math.sqrt(r.totalCredits) / totalVotes) * 100)
+          : 0;
+
+        return `*${
+          i + 1
+        }.* ${r.option}: ${actualVotes} votes (${percentage}%) - ${r.totalCredits} credits`;
+      })
+      .join("\n");
+
+    // Send an ephemeral message with the results
+    return {
+      status: 200,
+      body: {
+        text: `:checkered_flag: *Vote "${updatedVote.title}" has been ended*\n\n${
+          resultsText || "No votes were cast."
+        }`,
+        response_type: "ephemeral",
+      },
+    };
+  } catch (error) {
+    console.error("Error ending vote:", error);
+    return {
+      status: 200,
+      body: {
+        text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        response_type: "ephemeral",
+      },
+    };
   }
 }
 

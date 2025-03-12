@@ -36,6 +36,7 @@ model Vote {
   creditsPerUser Int            @default(100) @map("credits_per_user")
   startTime      DateTime       @default(now()) @map("start_time") @db.Timestamptz(6)
   endTime        DateTime?      @map("end_time") @db.Timestamptz(6)
+  isEnded        Boolean        @default(false) @map("is_ended")
   createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
   responses      VoteResponse[]
