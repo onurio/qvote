@@ -2,7 +2,7 @@
   "tasks": {
     "dev": "deno run --allow-net --allow-env --allow-read --allow-run --allow-ffi --watch main.ts",
     "start": "deno run --allow-net --allow-env --allow-read --allow-ffi main.ts",
-    "test": "deno test --allow-env --allow-read --allow-ffi",
+    "test": "DB_HOST=localhost DB_PORT=5432 DB_USER=test DB_PASSWORD=test DB_NAME=test DATABASE_URL=postgresql://test:test@localhost:5432/test deno test --allow-read --allow-env --allow-net --allow-ffi",
     "lint": "deno lint",
     "fmt": "deno fmt",
     "fmt:check": "deno fmt --check",

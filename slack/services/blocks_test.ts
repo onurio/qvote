@@ -1,5 +1,39 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
-import { createVoteBlocks } from "./blocks.ts";
+import { createVoteBlocks, SlackBlock } from "./blocks.ts";
+
+// Define more specific types for testing
+interface HeaderBlock extends SlackBlock {
+  type: "header";
+  text: {
+    type: string;
+    text: string;
+    emoji?: boolean;
+  };
+}
+
+interface SectionBlock extends SlackBlock {
+  type: "section";
+  text: {
+    type: string;
+    text: string;
+    emoji?: boolean;
+  };
+}
+
+// Define type for blocks with elements
+interface ElementsBlock extends SlackBlock {
+  type: string;
+  elements: Array<{
+    type: string;
+    action_id?: string;
+    text?: {
+      type: string;
+      text: string;
+    };
+    value?: string;
+    [key: string]: unknown;
+  }>;
+}
 
 Deno.test("createVoteBlocks creates proper UI for active vote", () => {
   // Create mock vote data for an active vote
@@ -25,43 +59,52 @@ Deno.test("createVoteBlocks creates proper UI for active vote", () => {
 
   // Verify header and description
   assertEquals(blocks[0].type, "header");
-  assertEquals((blocks[0].text as any).text, ":ballot_box: Test Vote");
-  
+  assertEquals((blocks[0] as HeaderBlock).text.text, ":ballot_box: Test Vote");
+
   // Verify description is included
   assertEquals(blocks[1].type, "section");
-  assertEquals((blocks[1].text as any).text, "This is a test vote");
-  
+  assertEquals((blocks[1] as SectionBlock).text.text, "This is a test vote");
+
   // Verify options are listed
   assertEquals(blocks[2].type, "section");
-  assertStringIncludes((blocks[2].text as any).text, "*Options:*");
-  assertStringIncludes((blocks[2].text as any).text, "*1.* Option 1");
-  assertStringIncludes((blocks[2].text as any).text, "*2.* Option 2");
-  assertStringIncludes((blocks[2].text as any).text, "*3.* Option 3");
-  
+  assertStringIncludes((blocks[2] as SectionBlock).text.text, "*Options:*");
+  assertStringIncludes((blocks[2] as SectionBlock).text.text, "*1.* Option 1");
+  assertStringIncludes((blocks[2] as SectionBlock).text.text, "*2.* Option 2");
+  assertStringIncludes((blocks[2] as SectionBlock).text.text, "*3.* Option 3");
+
   // Verify status shows end time
   assertEquals(blocks[3].type, "section");
-  assertStringIncludes((blocks[3].text as any).text, "*Status:* :hourglass: Voting ends:");
-  
+  assertStringIncludes((blocks[3] as SectionBlock).text.text, "*Status:* :hourglass: Voting ends:");
+
   // Verify action buttons - for active vote should have Vote, Results, End Vote
   assertEquals(blocks[4].type, "actions");
-  const elements = (blocks[4] as any).elements;
+  const elements = (blocks[4] as ElementsBlock).elements;
   assertEquals(elements.length, 3);
-  
+
   // Vote button
   assertEquals(elements[0].action_id, "open_vote_modal");
-  assertEquals(elements[0].text.text, "Vote");
-  
+  assertEquals(elements[0].text?.text, "Vote");
+
   // Results button
   assertEquals(elements[1].action_id, "show_vote_results");
-  assertEquals(elements[1].text.text, "Results");
-  
+  assertEquals(elements[1].text?.text, "Results");
+
   // End Vote button
   assertEquals(elements[2].action_id, "end_vote");
-  assertEquals(elements[2].text.text, "End Vote");
-  
+  assertEquals(elements[2].text?.text, "End Vote");
+
   // Verify creator info in footer
   assertEquals(blocks[5].type, "context");
-  assertStringIncludes((blocks[5].elements as any)[0].text, "Created by <@creator-123>");
+  const element = (blocks[5] as ElementsBlock).elements[0];
+  assertEquals(element.type, "mrkdwn");
+
+  // Check if the element has a text property
+  if ("text" in element) {
+    assertStringIncludes(
+      String(element.text),
+      "Created by <@creator-123>",
+    );
+  }
 });
 
 Deno.test("createVoteBlocks creates proper UI for ended vote", () => {
@@ -85,19 +128,22 @@ Deno.test("createVoteBlocks creates proper UI for ended vote", () => {
 
   // Generate blocks for the ended vote
   const blocks = createVoteBlocks(vote, "bot-123");
-  
+
   // Verify status shows vote ended
   assertEquals(blocks[3].type, "section");
-  assertStringIncludes((blocks[3].text as any).text, "*Status:* :checkered_flag: Voting has ended");
-  
+  assertStringIncludes(
+    (blocks[3] as SectionBlock).text.text,
+    "*Status:* :checkered_flag: Voting has ended",
+  );
+
   // Verify action buttons - for ended vote should only have Results button
   assertEquals(blocks[4].type, "actions");
-  const elements = (blocks[4] as any).elements;
+  const elements = (blocks[4] as ElementsBlock).elements;
   assertEquals(elements.length, 1);
-  
+
   // Only Results button should be present
   assertEquals(elements[0].action_id, "show_vote_results");
-  assertEquals(elements[0].text.text, "Results");
+  assertEquals(elements[0].text?.text, "Results");
 });
 
 Deno.test("createVoteBlocks handles restricted voters correctly", () => {
@@ -121,8 +167,11 @@ Deno.test("createVoteBlocks handles restricted voters correctly", () => {
 
   // Generate blocks
   const blocks = createVoteBlocks(vote, "bot-123");
-  
+
   // Verify info text includes restriction note
   assertEquals(blocks[3].type, "section");
-  assertStringIncludes((blocks[3].text as any).text, "*Note:* This vote is restricted to specific users");
+  assertStringIncludes(
+    (blocks[3] as SectionBlock).text.text,
+    "*Note:* This vote is restricted to specific users",
+  );
 });
