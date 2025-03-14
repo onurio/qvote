@@ -46,6 +46,11 @@ jobs:
       - name: Generate Prisma client
         run: deno task prisma:generate
 
+      - name: Test database migrations
+        run: deno run -A npm:prisma@latest migrate deploy
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+
       - name: Run type check
         run: deno task check
 
