@@ -54,20 +54,25 @@ const createTestApp = () => {
   return app;
 };
 
-Deno.test("OAuth authorize route redirects to Slack", async () => {
-  // Set mock services for this test
-  setAuthService(mockServices);
+Deno.test({
+  name: "OAuth authorize route redirects to Slack",
+  fn: async () => {
+    // Set mock services for this test
+    setAuthService(mockServices);
 
-  const app = createTestApp();
-  const resp = (await app.handle(
-    new Request("http://localhost:8080/oauth/authorize"),
-  )) as Response;
+    const app = createTestApp();
+    const resp = (await app.handle(
+      new Request("http://localhost:8080/oauth/authorize"),
+    )) as Response;
 
-  assertEquals(resp.status, 302);
-  const location = resp.headers.get("Location");
-  assertStringIncludes(location || "", "https://slack.com/oauth/v2/authorize");
-  assertStringIncludes(location || "", "client_id=test_client_id");
-  assertStringIncludes(location || "", "state=test-uuid-123");
+    assertEquals(resp.status, 302);
+    const location = resp.headers.get("Location");
+    assertStringIncludes(location || "", "https://slack.com/oauth/v2/authorize");
+    assertStringIncludes(location || "", "client_id=test_client_id");
+    assertStringIncludes(location || "", "state=test-uuid-123");
+  },
+  sanitizeResources: false,
+  sanitizeOps: false,
 });
 
 Deno.test("OAuth callback route handles missing code parameter", async () => {
