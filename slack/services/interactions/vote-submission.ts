@@ -66,9 +66,10 @@ export async function handleVoteSubmission(
       };
     }
 
-    let totalUsedCredits = 0;
+    // No need to check if user has already voted - we'll validate the new total credits regardless
 
-    // Process each option's credits
+    // First pass - validate all inputs before making any changes
+    let totalCredits = 0;
     for (let i = 0; i < options.length; i++) {
       const blockId = `option_${i}`;
       const actionId = `credits_${i}`;
@@ -94,10 +95,35 @@ export async function handleVoteSubmission(
           };
         }
 
-        if (credits > 0) {
+        totalCredits += credits;
+      }
+    }
+
+    // Check if the total credits exceed the allowed limit
+    if (totalCredits > vote.creditsPerUser) {
+      return {
+        status: 200,
+        body: {
+          response_action: "errors",
+          errors: {
+            option_0:
+              `You've used ${totalCredits} credits, which exceeds the limit of ${vote.creditsPerUser} credits.`,
+          },
+        },
+      };
+    }
+
+    // Second pass - apply the changes now that we've validated
+    for (let i = 0; i < options.length; i++) {
+      const blockId = `option_${i}`;
+      const actionId = `credits_${i}`;
+
+      if (state[blockId] && state[blockId][actionId]) {
+        const credits = parseInt(state[blockId][actionId].value || "0", 10) || 0;
+
+        if (credits >= 0) { // Allow zero credits to clear previous votes
           // Record this option's votes
           await recordVoteResponse(vote.id, userId, i, credits);
-          totalUsedCredits += credits;
         }
       }
     }

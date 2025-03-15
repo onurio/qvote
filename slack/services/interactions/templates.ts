@@ -169,7 +169,12 @@ export function createVotingModalView(vote: {
   title: string;
   description?: string | null;
   creditsPerUser: number;
+  creditsUsed?: number;
   options: string[];
+  previousVotes?: Array<{
+    optionIndex: number;
+    credits: number;
+  }>;
 }): SlackModalView {
   const options = vote.options as string[];
 
@@ -203,8 +208,11 @@ export function createVotingModalView(vote: {
         type: "section",
         text: {
           type: "mrkdwn",
-          text:
-            "You have credits to distribute. Cost increases quadratically: 1 vote = 1 credit, 2 votes = 4 credits, etc. *You must use perfect square numbers only* (1, 4, 9, 16, 25, 36, etc.).",
+          text: vote.creditsUsed !== undefined
+            ? `You have *${vote.creditsPerUser}* total credits to distribute (${vote.creditsUsed} used, ${
+              vote.creditsPerUser - vote.creditsUsed
+            } remaining). Cost increases quadratically: 1 vote = 1 credit, 2 votes = 4 credits, etc. *You must use perfect square numbers only* (1, 4, 9, 16, 25, 36, etc.).`
+            : `You have *${vote.creditsPerUser}* credits to distribute. Cost increases quadratically: 1 vote = 1 credit, 2 votes = 4 credits, etc. *You must use perfect square numbers only* (1, 4, 9, 16, 25, 36, etc.).`,
         },
       },
       {
@@ -240,6 +248,9 @@ export function createVotingModalView(vote: {
           type: "plain_text",
           text: "0",
         },
+        initial_value: vote.previousVotes
+          ? String(vote.previousVotes.find((v) => v.optionIndex === index)?.credits || "0")
+          : "0",
       },
       label: {
         type: "plain_text",

@@ -61,13 +61,19 @@ export async function handleOpenVoteModal(
     }
 
     // Create the voting modal view using the template
+    // Get any previous votes by this user
+    const userResponses = vote.responses.filter((response) => response.userId === payload.user.id);
+    const userCredits = userResponses.reduce((sum, response) => sum + response.credits, 0);
+
     // Cast the options to string[] as it comes from the database as Json
     const view = createVotingModalView({
       id: vote.id,
       title: vote.title,
       description: vote.description,
       creditsPerUser: vote.creditsPerUser,
+      creditsUsed: userCredits,
       options: vote.options as string[],
+      previousVotes: userResponses,
     });
 
     // For debugging
