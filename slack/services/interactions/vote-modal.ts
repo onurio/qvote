@@ -1,8 +1,8 @@
-import { getVoteById } from "../../../db/votes.ts";
+import { getVoteById } from "@db/votes.ts";
 import { InteractionResponse, SlackInteraction } from "./types.ts";
 import { createVotingModalView } from "./templates.ts";
 import { getWorkspaceToken } from "./workspace-utils.ts";
-import logger from "../../../utils/logger.ts";
+import logger from "@utils/logger.ts";
 
 // Handle opening the vote modal
 export async function handleOpenVoteModal(

@@ -1,5 +1,5 @@
-import { prisma } from "../../../db/prisma.ts";
-import logger from "../../../utils/logger.ts";
+import { prisma } from "@db/prisma.ts";
+import logger from "@utils/logger.ts";
 
 // Helper function to get workspace token
 export async function getWorkspaceToken(workspaceId: string): Promise<string | null> {

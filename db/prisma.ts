@@ -3,7 +3,7 @@
 import { PrismaClient } from "generated/index.js";
 
 import { load } from "@std/dotenv";
-import logger from "../utils/logger.ts";
+import logger from "@utils/logger.ts";
 
 await load({ export: true });
 

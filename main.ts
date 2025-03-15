@@ -2,11 +2,11 @@ import { Application } from "jsr:@oak/oak/application";
 import { Router } from "jsr:@oak/oak/router";
 import { Context } from "jsr:@oak/oak/context";
 import { load } from "@std/dotenv";
-import oauthRouter from "./oauth/routes.ts";
-import slackRouter from "./slack/routes.ts";
-import { closeDatabase, connectToDatabase } from "./db/prisma.ts";
-import { getHomePage } from "./ui/pages.ts";
-import logger from "./utils/logger.ts";
+import oauthRouter from "@oauth/routes.ts";
+import slackRouter from "@slack/routes.ts";
+import { closeDatabase, connectToDatabase } from "@db/prisma.ts";
+import { getHomePage } from "@ui/pages.ts";
+import logger from "@utils/logger.ts";
 
 // Load environment variables from .env file
 await load({ export: true });

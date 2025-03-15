@@ -1,6 +1,6 @@
-import { getVoteById, recordVoteResponse } from "../../../db/votes.ts";
+import { getVoteById, recordVoteResponse } from "@db/votes.ts";
 import { InteractionResponse, SlackInteraction } from "./types.ts";
-import logger from "../../../utils/logger.ts";
+import logger from "@utils/logger.ts";
 
 // Handle vote submission from an existing vote
 export async function handleVoteSubmission(

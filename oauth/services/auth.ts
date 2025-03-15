@@ -1,5 +1,5 @@
 // OAuth service for Slack authentication
-import logger from "../../utils/logger.ts";
+import logger from "@utils/logger.ts";
 
 // Generate the authorization URL for Slack OAuth
 export function generateAuthUrl(): string {

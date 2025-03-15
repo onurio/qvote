@@ -3,7 +3,7 @@ import { handleCreateVoteSubmission } from "./vote-creation.ts";
 import { handleEndVote, handleShowVoteResults } from "./vote-management.ts";
 import { handleOpenVoteModal } from "./vote-modal.ts";
 import { handleVoteSubmission } from "./vote-submission.ts";
-import logger from "../../../utils/logger.ts";
+import logger from "@utils/logger.ts";
 
 // Route the interaction to the appropriate handler
 export async function routeSlackInteraction(

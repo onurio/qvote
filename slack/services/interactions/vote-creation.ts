@@ -1,9 +1,9 @@
-import { createVote } from "../../../db/votes.ts";
+import { createVote } from "@db/votes.ts";
 import { createVoteBlocks } from "../blocks.ts";
 import { InteractionResponse, SlackInteraction } from "./types.ts";
 import { createVoteCreationModalView, createVoteSuccessModalView } from "./templates.ts";
 import { getWorkspaceToken } from "./workspace-utils.ts";
-import logger from "../../../utils/logger.ts";
+import logger from "@utils/logger.ts";
 
 // Handle the vote creation submission
 export async function handleCreateVoteSubmission(
