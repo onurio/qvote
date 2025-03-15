@@ -252,6 +252,24 @@ async function handleVoteSubmission(
       if (state[blockId] && state[blockId][actionId]) {
         const credits = parseInt(state[blockId][actionId].value || "0", 10) || 0;
 
+        // Validate that credits is a perfect square
+        const sqrt = Math.sqrt(credits);
+        const isSquare = Number.isInteger(sqrt);
+
+        if (credits > 0 && !isSquare) {
+          // Return an error if credits is not a perfect square
+          return {
+            status: 200,
+            body: {
+              response_action: "errors",
+              errors: {
+                [blockId]:
+                  "Please use only perfect square numbers (1, 4, 9, 16, 25, 36, 49, 64, 81, 100, etc.)",
+              },
+            },
+          };
+        }
+
         if (credits > 0) {
           // Record this option's votes
           await recordVoteResponse(vote.id, userId, i, credits);
@@ -362,6 +380,23 @@ async function handleCreateVoteSubmission(
           response_action: "errors",
           errors: {
             vote_credits: "Credits must be a positive number",
+          },
+        },
+      };
+    }
+
+    // Validate that credits is a perfect square
+    const sqrt = Math.sqrt(credits);
+    const isSquare = Number.isInteger(sqrt);
+
+    if (!isSquare) {
+      return {
+        status: 200,
+        body: {
+          response_action: "errors",
+          errors: {
+            vote_credits:
+              "Credits must be a perfect square (1, 4, 9, 16, 25, 36, 49, 64, 81, 100, etc.)",
           },
         },
       };
@@ -638,7 +673,7 @@ async function handleOpenVoteModal(
       text: {
         type: "mrkdwn",
         text:
-          `*Quadratic Voting*\nYou have *${vote.creditsPerUser} credits* to distribute among the options. The cost of voting increases quadratically: 1 credit = 1 vote, 4 credits = 2 votes, 9 credits = 3 votes, etc.`,
+          `*Quadratic Voting*\nYou have *${vote.creditsPerUser} credits* to distribute among the options. The cost of voting increases quadratically: 1 credit = 1 vote, 4 credits = 2 votes, 9 credits = 3 votes, etc. *You must use perfect square numbers only* (1, 4, 9, 16, 25, 36, etc.).`,
         emoji: true,
       },
     });
@@ -715,7 +750,7 @@ async function handleOpenVoteModal(
           text: {
             type: "mrkdwn",
             text:
-              "You have credits to distribute. Cost increases quadratically: 1 vote = 1 credit, 2 votes = 4 credits, etc.",
+              "You have credits to distribute. Cost increases quadratically: 1 vote = 1 credit, 2 votes = 4 credits, etc. *You must use perfect square numbers only* (1, 4, 9, 16, 25, 36, etc.).",
           },
         },
         {
@@ -751,6 +786,11 @@ async function handleOpenVoteModal(
           label: {
             type: "plain_text",
             text: "Credits",
+            emoji: true,
+          },
+          hint: {
+            type: "plain_text",
+            text: "Use perfect squares only (1, 4, 9, 16, 25, 36, 49, 64, 81, 100, etc.)",
             emoji: true,
           },
         } as SlackBlock,
@@ -1112,6 +1152,11 @@ export async function openVoteCreationModal(
           label: {
             type: "plain_text",
             text: "Credits per User",
+            emoji: true,
+          },
+          hint: {
+            type: "plain_text",
+            text: "Must be a perfect square (1, 4, 9, 16, 25, 36, 49, 64, 81, 100, etc.)",
             emoji: true,
           },
         },
