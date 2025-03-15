@@ -1,4 +1,5 @@
 // OAuth service for Slack authentication
+import logger from "../../utils/logger.ts";
 
 // Generate the authorization URL for Slack OAuth
 export function generateAuthUrl(): string {
@@ -50,7 +51,7 @@ export async function exchangeCodeForToken(code: string): Promise<{
     const data = await response.json();
 
     if (!data.ok) {
-      console.error("Slack OAuth error:", data.error);
+      logger.error("Slack OAuth error", { error: data.error });
       return {
         success: false,
         error: data.error,
@@ -67,7 +68,7 @@ export async function exchangeCodeForToken(code: string): Promise<{
       },
     };
   } catch (error) {
-    console.error("Error during OAuth flow:", error);
+    logger.error("Error during OAuth flow", error);
     return {
       success: false,
       error: "Server error during OAuth process",

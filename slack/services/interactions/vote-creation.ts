@@ -3,6 +3,7 @@ import { createVoteBlocks } from "../blocks.ts";
 import { InteractionResponse, SlackInteraction } from "./types.ts";
 import { createVoteCreationModalView, createVoteSuccessModalView } from "./templates.ts";
 import { getWorkspaceToken } from "./workspace-utils.ts";
+import logger from "../../../utils/logger.ts";
 
 // Handle the vote creation submission
 export async function handleCreateVoteSubmission(
@@ -10,16 +11,16 @@ export async function handleCreateVoteSubmission(
   workspaceId: string,
 ): Promise<InteractionResponse> {
   try {
-    console.log("Handling vote creation submission");
+    logger.info("Handling vote creation submission");
 
     // Extract values from the submission
     const state = payload.view!.state.values;
-    console.log("Submission state:", JSON.stringify(state));
+    logger.debug("Submission state", state);
 
     const metadata = payload.view!.private_metadata
       ? JSON.parse(String(payload.view!.private_metadata))
       : {};
-    console.log("Metadata:", JSON.stringify(metadata));
+    logger.debug("Metadata", metadata);
 
     // Extract values from the form
     const title = state.vote_title.vote_title_input.value;
@@ -37,7 +38,7 @@ export async function handleCreateVoteSubmission(
       const selectedUsers =
         (allowedVotersObj as unknown as { selected_users: string[] }).selected_users;
       allowedVoters = selectedUsers;
-      console.log("Selected allowed voters:", allowedVoters);
+      logger.debug("Selected allowed voters", allowedVoters);
     }
 
     const creditsText = state.vote_credits?.vote_credits_input?.value || "100";
@@ -131,7 +132,7 @@ export async function handleCreateVoteSubmission(
     }
 
     // Create the vote in the database
-    console.log("Creating vote with:", {
+    logger.info("Creating vote", {
       workspaceId,
       channelId: metadata.channelId,
       creatorId: payload.user.id,
@@ -155,7 +156,7 @@ export async function handleCreateVoteSubmission(
       endTime,
     });
 
-    console.log("Vote created successfully:", vote.id);
+    logger.info("Vote created successfully", { voteId: vote.id });
 
     // Get the token to post a message to the channel
     const workspaceToken = await getWorkspaceToken(workspaceId);
@@ -173,7 +174,7 @@ export async function handleCreateVoteSubmission(
     const blocks = JSON.stringify(createVoteBlocks(vote, ""));
 
     // Post the vote message to the channel
-    console.log("Posting message to channel:", metadata.channelId);
+    logger.info("Posting message to channel", { channelId: metadata.channelId });
 
     // First try to join the channel
     try {
@@ -189,9 +190,9 @@ export async function handleCreateVoteSubmission(
       });
 
       const joinResult = await joinResponse.json();
-      console.log("Join channel result:", JSON.stringify(joinResult));
+      logger.debug("Join channel result", joinResult);
     } catch (joinError) {
-      console.warn("Failed to join channel:", joinError);
+      logger.warn("Failed to join channel", joinError);
       // Continue anyway, as the bot might already be in the channel
     }
 
@@ -210,11 +211,11 @@ export async function handleCreateVoteSubmission(
     });
 
     const postResult = await postResponse.json();
-    console.log("Post message result:", JSON.stringify(postResult));
+    logger.debug("Post message result", postResult);
 
     // If we couldn't post to the channel, send an ephemeral message to the user
     if (!postResult.ok) {
-      console.warn(`Failed to post message: ${postResult.error}`);
+      logger.warn(`Failed to post message`, { error: postResult.error });
 
       // Try to send an ephemeral message to the user
       try {
@@ -232,7 +233,7 @@ export async function handleCreateVoteSubmission(
           }),
         });
       } catch (ephemeralError) {
-        console.error("Failed to send ephemeral message:", ephemeralError);
+        logger.error("Failed to send ephemeral message", ephemeralError);
       }
     }
 
@@ -245,7 +246,7 @@ export async function handleCreateVoteSubmission(
       },
     };
   } catch (error) {
-    console.error("Error processing vote creation:", error);
+    logger.error("Error processing vote creation", error);
 
     // Return an error that will be displayed in the modal
     return {
@@ -301,7 +302,7 @@ export async function openVoteCreationModal(
     const result = await response.json();
 
     if (!result.ok) {
-      console.error("Error opening vote creation modal:", result.error);
+      logger.error("Error opening vote creation modal", { error: result.error });
       return {
         status: 200,
         body: {
@@ -317,7 +318,7 @@ export async function openVoteCreationModal(
       body: {},
     };
   } catch (error) {
-    console.error("Error opening vote creation modal:", error);
+    logger.error("Error opening vote creation modal", error);
     return {
       status: 200,
       body: {

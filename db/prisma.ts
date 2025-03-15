@@ -3,6 +3,7 @@
 import { PrismaClient } from "generated/index.js";
 
 import { load } from "@std/dotenv";
+import logger from "../utils/logger.ts";
 
 await load({ export: true });
 
@@ -17,33 +18,34 @@ export const prisma = new PrismaClient();
  * @returns Promise that resolves when connection is established
  */
 export async function connectToDatabase(retries = 1, delay = 5000) {
-  console.log("Connecting to database...");
+  logger.info("Connecting to database...");
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       // Simple query to check connection
-      console.log(`Attempting database connection...`);
+      logger.debug(`Attempting database connection...`);
       const result = await prisma.$queryRaw<
         [{ connection_test: number }]
       >`SELECT 1 as connection_test`;
-      console.log(
-        `Database connection successful: ${result[0].connection_test === 1}`,
+      logger.info(
+        `Database connection successful`,
+        { status: result[0].connection_test === 1 },
       );
       return;
     } catch (error) {
-      console.error(
-        `Database connection attempt ${attempt}/${retries} failed:`,
+      logger.error(
+        `Database connection attempt ${attempt}/${retries} failed`,
         error,
       );
 
       if (attempt < retries) {
-        console.log(`Retrying in ${delay / 1000} seconds...`);
+        logger.info(`Retrying in ${delay / 1000} seconds...`);
         await new Promise((resolve) => setTimeout(resolve, delay));
       } else {
-        console.error("All database connection attempts failed.");
-        console.error(
+        logger.error("All database connection attempts failed.");
+        logger.error(
           "Please ensure PostgreSQL is running and .env is configured correctly.",
         );
-        console.error(
+        logger.error(
           "Run 'deno task setup-db' and 'deno task prisma:deploy' to set up the database.",
         );
         Deno.exit(1);

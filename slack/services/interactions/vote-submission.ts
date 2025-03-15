@@ -1,5 +1,6 @@
 import { getVoteById, recordVoteResponse } from "../../../db/votes.ts";
 import { InteractionResponse, SlackInteraction } from "./types.ts";
+import logger from "../../../utils/logger.ts";
 
 // Handle vote submission from an existing vote
 export async function handleVoteSubmission(
@@ -136,7 +137,7 @@ export async function handleVoteSubmission(
       },
     };
   } catch (error) {
-    console.error("Error processing vote submission:", error);
+    logger.error("Error processing vote submission", error);
 
     // For view_submission, returning errors with a response_action of "errors"
     // keeps the modal open and displays the errors

@@ -6,6 +6,7 @@ import oauthRouter from "./oauth/routes.ts";
 import slackRouter from "./slack/routes.ts";
 import { closeDatabase, connectToDatabase } from "./db/prisma.ts";
 import { getHomePage } from "./ui/pages.ts";
+import logger from "./utils/logger.ts";
 
 // Load environment variables from .env file
 await load({ export: true });
@@ -14,7 +15,7 @@ async function loggingMiddleware(ctx: Context, next: () => Promise<unknown>) {
   const start = Date.now();
   await next();
   const ms = Date.now() - start;
-  console.log(`${ctx.request.method} ${ctx.request.url} - ${ms}ms`);
+  logger.info(`${ctx.request.method} ${ctx.request.url}`, { ms });
 }
 
 async function errorHandlingMiddleware(
@@ -24,7 +25,7 @@ async function errorHandlingMiddleware(
   try {
     await next();
   } catch (err) {
-    console.error(err);
+    logger.error("Request processing error", err);
     ctx.response.status = 500;
     ctx.response.body = "Internal server error";
   }
@@ -67,7 +68,7 @@ async function startServer(app: Application) {
   if (useHttps) {
     await startHttpsServer(app, port);
   } else {
-    console.log(`QVote server starting on port ${port}...`);
+    logger.info(`QVote server starting on port ${port}...`);
     await app.listen({ port });
   }
 }
@@ -89,10 +90,10 @@ async function startHttpsServer(app: Application, port: number) {
       cert,
       key,
     });
-    console.log(`HTTPS server started on port ${port}`);
+    logger.info(`HTTPS server started on port ${port}`);
   } catch (error) {
-    console.error(`Error setting up HTTPS server: ${(error as Error).message}`);
-    console.error(`Failed to read certificate files: ${certFile}, ${keyFile}`);
+    logger.error(`Error setting up HTTPS server:`, error);
+    logger.error(`Failed to read certificate files`, { certFile, keyFile });
     Deno.exit(1);
   }
 }
@@ -100,13 +101,13 @@ async function startHttpsServer(app: Application, port: number) {
 function setupShutdownHandlers() {
   // Handle graceful shutdowns
   Deno.addSignalListener("SIGINT", async () => {
-    console.log("Shutting down server...");
+    logger.info("Shutting down server on SIGINT...");
     await closeDatabase();
     Deno.exit(0);
   });
 
   Deno.addSignalListener("SIGTERM", async () => {
-    console.log("Shutting down server...");
+    logger.info("Shutting down server on SIGTERM...");
     await closeDatabase();
     Deno.exit(0);
   });

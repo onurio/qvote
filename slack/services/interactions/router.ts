@@ -3,13 +3,14 @@ import { handleCreateVoteSubmission } from "./vote-creation.ts";
 import { handleEndVote, handleShowVoteResults } from "./vote-management.ts";
 import { handleOpenVoteModal } from "./vote-modal.ts";
 import { handleVoteSubmission } from "./vote-submission.ts";
+import logger from "../../../utils/logger.ts";
 
 // Route the interaction to the appropriate handler
 export async function routeSlackInteraction(
   payload: SlackInteraction,
   workspaceId: string,
 ): Promise<InteractionResponse> {
-  console.log("Routing interaction:", payload.type);
+  logger.info("Routing interaction", { type: payload.type });
 
   switch (payload.type) {
     case "block_actions":
@@ -17,7 +18,7 @@ export async function routeSlackInteraction(
     case "view_submission":
       return await handleViewSubmission(payload, workspaceId);
     default:
-      console.warn(`Unknown interaction type: ${payload.type}`);
+      logger.warn(`Unknown interaction type`, { type: payload.type });
       return {
         status: 200,
         body: {
@@ -33,7 +34,7 @@ async function handleBlockActions(
   payload: SlackInteraction,
   workspaceId: string,
 ): Promise<InteractionResponse> {
-  console.log("Handling block actions", payload);
+  logger.debug("Handling block actions", payload);
   if (!payload.actions || payload.actions.length === 0) {
     return {
       status: 200,
@@ -46,7 +47,7 @@ async function handleBlockActions(
 
   // Get the first action
   const action = payload.actions[0];
-  console.log("Handling action:", action.action_id);
+  logger.info("Handling action", { actionId: action.action_id });
 
   switch (action.action_id) {
     case "open_vote_modal":
@@ -56,7 +57,7 @@ async function handleBlockActions(
     case "end_vote":
       return await handleEndVote(action, payload, workspaceId);
     default:
-      console.warn(`Unknown action: ${action.action_id}`);
+      logger.warn(`Unknown action`, { actionId: action.action_id });
       return {
         status: 200,
         body: {
@@ -73,7 +74,7 @@ async function handleViewSubmission(
   workspaceId: string,
 ): Promise<InteractionResponse> {
   // This handles modal submissions
-  console.log("Handling view submission", payload.view?.id);
+  logger.info("Handling view submission", { viewId: payload.view?.id });
 
   if (!payload.view) {
     return {
@@ -93,7 +94,7 @@ async function handleViewSubmission(
   } else if (callbackId === "vote_submission") {
     return await handleVoteSubmission(payload);
   } else {
-    console.warn(`Unknown view submission type: ${callbackId}`);
+    logger.warn(`Unknown view submission type`, { callbackId });
     return {
       status: 200,
       body: {

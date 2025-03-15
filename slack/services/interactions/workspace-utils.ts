@@ -1,4 +1,5 @@
 import { prisma } from "../../../db/prisma.ts";
+import logger from "../../../utils/logger.ts";
 
 // Helper function to get workspace token
 export async function getWorkspaceToken(workspaceId: string): Promise<string | null> {
@@ -8,7 +9,7 @@ export async function getWorkspaceToken(workspaceId: string): Promise<string | n
     });
     return workspace?.accessToken || null;
   } catch (error) {
-    console.error("Error getting workspace token:", error);
+    logger.error("Error getting workspace token", error);
     return null;
   }
 }

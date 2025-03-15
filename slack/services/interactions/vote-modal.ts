@@ -2,6 +2,7 @@ import { getVoteById } from "../../../db/votes.ts";
 import { InteractionResponse, SlackInteraction } from "./types.ts";
 import { createVotingModalView } from "./templates.ts";
 import { getWorkspaceToken } from "./workspace-utils.ts";
+import logger from "../../../utils/logger.ts";
 
 // Handle opening the vote modal
 export async function handleOpenVoteModal(
@@ -77,16 +78,12 @@ export async function handleOpenVoteModal(
     });
 
     // For debugging
-    console.log(
-      "Modal payload:",
-      JSON.stringify(
-        {
-          trigger_id: payload.trigger_id,
-          view,
-        },
-        null,
-        2,
-      ),
+    logger.debug(
+      "Modal payload",
+      {
+        trigger_id: payload.trigger_id,
+        view,
+      },
     );
 
     // Call the Slack API to open the modal
@@ -105,7 +102,7 @@ export async function handleOpenVoteModal(
     const result = await response.json();
 
     if (!result.ok) {
-      console.error("Error opening modal:", result.error);
+      logger.error("Error opening modal", { error: result.error });
       return {
         status: 200,
         body: {
@@ -121,7 +118,7 @@ export async function handleOpenVoteModal(
       body: {},
     };
   } catch (error) {
-    console.error("Error opening vote modal:", error);
+    logger.error("Error opening vote modal", error);
     return {
       status: 200,
       body: {
