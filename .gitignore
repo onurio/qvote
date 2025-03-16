@@ -9,9 +9,6 @@ deno.lock
 .env*.local
 prisma/.env
 
-# Prisma migration files (temporary until you want to commit your first migration)
-prisma/migrations/
-
 # SSL/TLS Certificates
 certs/*.pem
 certs/*.key
