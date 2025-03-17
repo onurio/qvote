@@ -79,22 +79,18 @@ Deno.test("createVoteBlocks creates proper UI for active vote", () => {
     "*Status:* :hourglass: Vote in progress",
   );
 
-  // Verify action buttons - for active vote should have Vote, Results, End Vote
+  // Verify action buttons - for active vote should have Vote and End Vote only (no Results)
   assertEquals(blocks[4].type, "actions");
   const elements = (blocks[4] as ElementsBlock).elements;
-  assertEquals(elements.length, 3);
+  assertEquals(elements.length, 2);
 
   // Vote button
   assertEquals(elements[0].action_id, "open_vote_modal");
   assertEquals(elements[0].text?.text, "Vote");
 
-  // Results button
-  assertEquals(elements[1].action_id, "show_vote_results");
-  assertEquals(elements[1].text?.text, "Results");
-
-  // End Vote button
-  assertEquals(elements[2].action_id, "end_vote");
-  assertEquals(elements[2].text?.text, "End Vote");
+  // End Vote button (no Results button for active votes)
+  assertEquals(elements[1].action_id, "end_vote");
+  assertEquals(elements[1].text?.text, "End Vote");
 
   // Verify creator info in footer
   assertEquals(blocks[5].type, "context");

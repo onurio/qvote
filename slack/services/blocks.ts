@@ -83,17 +83,19 @@ export function createVoteBlocks(vote: Vote, _botUserId: string) {
     });
   }
 
-  // Always show Results button
-  actionElements.push({
-    type: "button",
-    text: {
-      type: "plain_text",
-      text: "Results",
-      emoji: true,
-    },
-    value: `results_${vote.id}`,
-    action_id: "show_vote_results",
-  });
+  // Only show Results button if vote has ended
+  if (vote.isEnded) {
+    actionElements.push({
+      type: "button",
+      text: {
+        type: "plain_text",
+        text: "Results",
+        emoji: true,
+      },
+      value: `results_${vote.id}`,
+      action_id: "show_vote_results",
+    });
+  }
 
   // Add End Vote button for creator only if vote is not ended
   if (!vote.isEnded) {

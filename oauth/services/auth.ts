@@ -8,7 +8,10 @@ export function generateAuthUrl(): string {
 
   const slackAuthUrl = new URL("https://slack.com/oauth/v2/authorize");
   slackAuthUrl.searchParams.set("client_id", clientId);
-  slackAuthUrl.searchParams.set("scope", "commands chat:write channels:read channels:history");
+  slackAuthUrl.searchParams.set(
+    "scope",
+    "commands chat:write channels:read channels:history channels:join",
+  );
   slackAuthUrl.searchParams.set("redirect_uri", redirectUri);
   slackAuthUrl.searchParams.set("state", crypto.randomUUID()); // Anti-CSRF token
 
