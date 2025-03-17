@@ -72,9 +72,12 @@ Deno.test("createVoteBlocks creates proper UI for active vote", () => {
   assertStringIncludes((blocks[2] as SectionBlock).text.text, "*2.* Option 2");
   assertStringIncludes((blocks[2] as SectionBlock).text.text, "*3.* Option 3");
 
-  // Verify status shows end time
+  // Verify status shows active vote
   assertEquals(blocks[3].type, "section");
-  assertStringIncludes((blocks[3] as SectionBlock).text.text, "*Status:* :hourglass: Voting ends:");
+  assertStringIncludes(
+    (blocks[3] as SectionBlock).text.text,
+    "*Status:* :hourglass: Vote in progress",
+  );
 
   // Verify action buttons - for active vote should have Vote, Results, End Vote
   assertEquals(blocks[4].type, "actions");

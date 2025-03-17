@@ -7,7 +7,10 @@ import { SlackModalView } from "./slack-block-types.ts";
 /**
  * Creates a vote creation modal view object
  */
-export function createVoteCreationModalView(channelId: string, userId: string): SlackModalView {
+export function createVoteCreationModalView(
+  channelId: string,
+  userId: string,
+): SlackModalView {
   return {
     type: "modal",
     callback_id: "create_vote_submission",
@@ -129,30 +132,6 @@ export function createVoteCreationModalView(channelId: string, userId: string): 
           emoji: true,
         },
       },
-      {
-        type: "input",
-        block_id: "vote_duration",
-        optional: true,
-        element: {
-          type: "plain_text_input",
-          action_id: "vote_duration_input",
-          placeholder: {
-            type: "plain_text",
-            text: "24h",
-          },
-          initial_value: "24h",
-        },
-        label: {
-          type: "plain_text",
-          text: "Duration (e.g., 24h, 7d)",
-          emoji: true,
-        },
-        hint: {
-          type: "plain_text",
-          text: "Use h for hours, d for days",
-          emoji: true,
-        },
-      },
     ],
     private_metadata: JSON.stringify({
       channelId,
@@ -249,7 +228,10 @@ export function createVotingModalView(vote: {
           text: "0",
         },
         initial_value: vote.previousVotes
-          ? String(vote.previousVotes.find((v) => v.optionIndex === index)?.credits || "0")
+          ? String(
+            vote.previousVotes.find((v) => v.optionIndex === index)
+              ?.credits || "0",
+          )
           : "0",
       },
       label: {

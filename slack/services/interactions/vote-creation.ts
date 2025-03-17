@@ -35,14 +35,20 @@ export async function handleCreateVoteSubmission(
     // For multi-select elements, the structure is different than plain_text_input
     if (allowedVotersObj && "selected_users" in allowedVotersObj) {
       // Type assertion to access selected_users
-      const selectedUsers =
-        (allowedVotersObj as unknown as { selected_users: string[] }).selected_users;
+      const selectedUsers = (
+        allowedVotersObj as unknown as { selected_users: string[] }
+      ).selected_users;
+
+      // Always include the creator in allowed voters
+      if (!selectedUsers.includes(payload.user.id)) {
+        selectedUsers.push(payload.user.id);
+      }
+
       allowedVoters = selectedUsers;
       logger.debug("Selected allowed voters", allowedVoters);
     }
 
     const creditsText = state.vote_credits?.vote_credits_input?.value || "100";
-    const durationText = state.vote_duration?.vote_duration_input?.value || "24h";
 
     // Validate required fields
     if (!title || !optionsText) {
@@ -59,7 +65,9 @@ export async function handleCreateVoteSubmission(
     }
 
     // Parse options (split by lines)
-    const options = optionsText.split("\n").filter((option) => option.trim().length > 0);
+    const options = optionsText
+      .split("\n")
+      .filter((option) => option.trim().length > 0);
 
     if (options.length < 2) {
       return {
@@ -105,31 +113,7 @@ export async function handleCreateVoteSubmission(
       };
     }
 
-    // Parse duration (e.g., 24h, 7d)
-    const timeMatch = durationText.match(/(\d+)([hd])/);
-    let endTime: Date | null = null;
-
-    if (timeMatch && timeMatch[1] && timeMatch[2]) {
-      const value = parseInt(timeMatch[1], 10);
-      const unit = timeMatch[2];
-
-      endTime = new Date();
-      if (unit === "h") {
-        endTime.setHours(endTime.getHours() + value);
-      } else if (unit === "d") {
-        endTime.setDate(endTime.getDate() + value);
-      }
-    } else {
-      return {
-        status: 200,
-        body: {
-          response_action: "errors",
-          errors: {
-            vote_duration: "Invalid duration format. Use format like '24h' or '7d'",
-          },
-        },
-      };
-    }
+    // Remove duration field validation
 
     // Create the vote in the database
     logger.info("Creating vote", {
@@ -141,7 +125,7 @@ export async function handleCreateVoteSubmission(
       options,
       allowedVoters,
       creditsPerUser: credits,
-      endTime: endTime?.toISOString(),
+      // endTime removed
     });
 
     const vote = await createVote({
@@ -153,7 +137,7 @@ export async function handleCreateVoteSubmission(
       options,
       allowedVoters,
       creditsPerUser: credits,
-      endTime,
+      // endTime removed
     });
 
     logger.info("Vote created successfully", { voteId: vote.id });
@@ -174,20 +158,25 @@ export async function handleCreateVoteSubmission(
     const blocks = JSON.stringify(createVoteBlocks(vote, ""));
 
     // Post the vote message to the channel
-    logger.info("Posting message to channel", { channelId: metadata.channelId });
+    logger.info("Posting message to channel", {
+      channelId: metadata.channelId,
+    });
 
     // First try to join the channel
     try {
-      const joinResponse = await fetch("https://slack.com/api/conversations.join", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          Authorization: `Bearer ${workspaceToken}`,
+      const joinResponse = await fetch(
+        "https://slack.com/api/conversations.join",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            Authorization: `Bearer ${workspaceToken}`,
+          },
+          body: JSON.stringify({
+            channel: metadata.channelId,
+          }),
         },
-        body: JSON.stringify({
-          channel: metadata.channelId,
-        }),
-      });
+      );
 
       const joinResult = await joinResponse.json();
       logger.debug("Join channel result", joinResult);
@@ -302,7 +291,9 @@ export async function openVoteCreationModal(
     const result = await response.json();
 
     if (!result.ok) {
-      logger.error("Error opening vote creation modal", { error: result.error });
+      logger.error("Error opening vote creation modal", {
+        error: result.error,
+      });
       return {
         status: 200,
         body: {

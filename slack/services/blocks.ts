@@ -8,21 +8,14 @@ export interface SlackBlock {
 
 // Create Slack blocks for displaying a vote
 export function createVoteBlocks(vote: Vote, _botUserId: string) {
-  const optionsText = (vote.options as unknown as string[]).map((option: string, index: number) =>
-    `*${index + 1}.* ${option}`
-  ).join("\n");
+  const optionsText = (vote.options as unknown as string[])
+    .map((option: string, index: number) => `*${index + 1}.* ${option}`)
+    .join("\n");
 
   // Display status based on isEnded flag
-  let statusInfo;
-  if (vote.isEnded) {
-    statusInfo = "*Status:* :checkered_flag: Voting has ended";
-  } else if (vote.endTime) {
-    statusInfo = `*Status:* :hourglass: Voting ends: <!date^${
-      Math.floor(new Date(vote.endTime).getTime() / 1000)
-    }^{date_short_pretty} at {time}|${new Date(vote.endTime).toLocaleString()}>`;
-  } else {
-    statusInfo = "*Status:* :hourglass: No end time set";
-  }
+  const statusInfo = vote.isEnded
+    ? "*Status:* :checkered_flag: Voting has ended"
+    : "*Status:* :hourglass: Vote in progress";
 
   // Create blocks array and filter out nulls before returning to match SlackBlock[] type
   const blocks: SlackBlock[] = [

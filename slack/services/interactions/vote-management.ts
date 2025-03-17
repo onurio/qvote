@@ -2,14 +2,149 @@ import { endVote, getVoteById, getVoteResults } from "../../../db/votes.ts";
 import { createVoteBlocks } from "../blocks.ts";
 import { InteractionResponse, SlackBlock, SlackInteraction } from "./types.ts";
 import { getWorkspaceToken } from "./workspace-utils.ts";
+import logger from "@utils/logger.ts";
 
 // Handle ending a vote
+/**
+ * Checks if all allowed voters have voted and ends the vote if they have
+ * @param voteId The ID of the vote to check
+ * @param userId The ID of the user who just voted (to make sure they're included in the count)
+ */
+export async function checkAndAutoEndVote(voteId: string, userId: string): Promise<void> {
+  try {
+    // Get latest vote data with all responses
+    const vote = await getVoteById(voteId);
+
+    if (!vote || vote.isEnded || !vote.allowedVoters) {
+      // Vote not found, already ended, or doesn't have allowed voters restriction
+      return;
+    }
+
+    const allowedVoters = vote.allowedVoters as string[];
+    if (allowedVoters.length === 0) {
+      // No allowed voters restriction
+      return;
+    }
+
+    // Get all unique user IDs that have voted
+    const voterIds = new Set();
+    vote.responses.forEach((response) => {
+      if (response.credits > 0) { // Only count users who gave credits
+        voterIds.add(response.userId);
+      }
+    });
+    // Add the current voter
+    voterIds.add(userId);
+
+    // Check if all allowed voters have now voted
+    const allVoted = allowedVoters.every((voterId) => voterIds.has(voterId));
+
+    if (allVoted) {
+      // End the vote automatically
+      await endVote(vote.id);
+      logger.info("Vote ended automatically because all participants have voted", {
+        voteId: vote.id,
+      });
+
+      // Update UI message
+      await updateVoteMessage(vote);
+    }
+  } catch (error) {
+    logger.error("Error in checkAndAutoEndVote", error);
+  }
+}
+
+/**
+ * Updates the Slack message containing the vote to reflect current state
+ * @param vote The vote to update the message for
+ */
+async function updateVoteMessage(vote: {
+  id: string;
+  workspaceId: string;
+  channelId: string;
+  title: string;
+}): Promise<void> {
+  try {
+    const workspaceToken = await getWorkspaceToken(vote.workspaceId);
+    if (!workspaceToken) {
+      logger.warn("Could not get workspace token for vote message update", { voteId: vote.id });
+      return;
+    }
+
+    // Get updated vote with current state
+    const updatedVote = await getVoteById(vote.id);
+    if (!updatedVote) {
+      return;
+    }
+
+    // Find the message containing this vote in the channel
+    const historyResponse = await fetch(
+      `https://slack.com/api/conversations.history?channel=${vote.channelId}&limit=20`,
+      {
+        headers: {
+          Authorization: `Bearer ${workspaceToken}`,
+        },
+      },
+    );
+
+    const history = await historyResponse.json();
+    if (!history.ok) {
+      logger.warn("Failed to get channel history", {
+        error: history.error,
+        voteId: vote.id,
+      });
+      return;
+    }
+
+    // Look for a message that contains the vote ID
+    const voteMessage = history.messages.find((msg: {
+      text?: string;
+      blocks?: unknown;
+      ts: string;
+    }) =>
+      msg.text?.includes(vote.id) ||
+      (msg.blocks && JSON.stringify(msg.blocks).includes(vote.id))
+    );
+
+    if (!voteMessage) {
+      logger.warn("Could not find vote message in channel history", { voteId: vote.id });
+      return;
+    }
+
+    // Update the message with new blocks showing updated vote state
+    const updatedBlocks = JSON.stringify(createVoteBlocks(updatedVote, ""));
+    const updateResponse = await fetch("https://slack.com/api/chat.update", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        Authorization: `Bearer ${workspaceToken}`,
+      },
+      body: JSON.stringify({
+        channel: vote.channelId,
+        ts: voteMessage.ts,
+        blocks: updatedBlocks,
+        text: updatedVote.isEnded ? `Vote ended: ${vote.title}` : `Vote: ${vote.title}`,
+      }),
+    });
+
+    const updateResult = await updateResponse.json();
+    if (!updateResult.ok) {
+      logger.warn("Failed to update vote message", {
+        error: updateResult.error,
+        voteId: vote.id,
+      });
+    }
+  } catch (error) {
+    logger.error("Error updating vote message", error);
+  }
+}
+
 export async function handleEndVote(
   action: NonNullable<SlackInteraction["actions"]>[number],
   payload: SlackInteraction,
   workspaceId: string,
 ): Promise<InteractionResponse> {
-  console.log("Handling end vote action:", action);
+  logger.info("Handling end vote action:", { action });
 
   if (!action.value) {
     return {

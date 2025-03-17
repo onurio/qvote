@@ -1,6 +1,7 @@
 import { getVoteById, recordVoteResponse } from "@db/votes.ts";
 import { InteractionResponse, SlackInteraction } from "./types.ts";
 import logger from "@utils/logger.ts";
+import { checkAndAutoEndVote } from "./vote-management.ts";
 
 // Handle vote submission from an existing vote
 export async function handleVoteSubmission(
@@ -128,6 +129,9 @@ export async function handleVoteSubmission(
         }
       }
     }
+
+    // Check if all allowed voters have voted and auto-end if needed
+    await checkAndAutoEndVote(vote.id, userId);
 
     // Return success response for view submission
     return {
