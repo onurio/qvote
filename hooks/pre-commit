@@ -1,6 +1,6 @@
 #!/bin/sh
 # QVote pre-commit hook
-# Run linting, formatting check, type checking, and tests before commit
+# Run linting, formatting check, type checking, tests, and coverage checks before commit
 
 # Debug output to a file
 echo "Pre-commit hook triggered at $(date)" > /tmp/qvote-precommit.log
@@ -16,7 +16,54 @@ EXIT_CODE=$?
 if [ $EXIT_CODE -ne 0 ]; then
   echo "❌ Pre-commit checks failed! Please fix the issues before committing."
   exit $EXIT_CODE
-else
-  echo "✅ Pre-commit checks passed!"
-  exit 0
 fi
+
+echo "Checking code coverage..."
+
+# Set minimum coverage thresholds based on current values
+MIN_LINE_COVERAGE=81.0
+MIN_BRANCH_COVERAGE=70.0
+
+# Generate coverage report
+echo "Running coverage tests..."
+deno task coverage > /tmp/coverage-output.txt 2>&1
+
+# Check if coverage command failed
+if [ $? -ne 0 ]; then
+  echo "❌ Coverage tests failed! Please fix the issues before committing."
+  cat /tmp/coverage-output.txt
+  exit 1
+fi
+
+# Extract coverage values from output
+ALL_FILES_LINE=$(grep "All files" /tmp/coverage-output.txt)
+if [ -z "$ALL_FILES_LINE" ]; then
+  echo "❌ Failed to parse coverage output. Please check the command output."
+  cat /tmp/coverage-output.txt
+  exit 1
+fi
+
+LINE_COVERAGE=$(echo "$ALL_FILES_LINE" | awk '{print $NF}' | tr -d '|' || echo "0.0")
+BRANCH_COVERAGE=$(echo "$ALL_FILES_LINE" | awk '{print $(NF-2)}' | tr -d '|' || echo "0.0")
+
+echo "Current coverage: $LINE_COVERAGE% line, $BRANCH_COVERAGE% branch"
+echo "Required coverage: $MIN_LINE_COVERAGE% line, $MIN_BRANCH_COVERAGE% branch"
+
+# Compare coverage with minimum thresholds
+if (( $(echo "$LINE_COVERAGE < $MIN_LINE_COVERAGE" | bc -l) )); then
+  echo "❌ Line coverage is below the minimum threshold of $MIN_LINE_COVERAGE%."
+  echo "   Current line coverage: $LINE_COVERAGE%"
+  echo "Please add tests to increase coverage before committing."
+  exit 1
+fi
+
+if (( $(echo "$BRANCH_COVERAGE < $MIN_BRANCH_COVERAGE" | bc -l) )); then
+  echo "❌ Branch coverage is below the minimum threshold of $MIN_BRANCH_COVERAGE%."
+  echo "   Current branch coverage: $BRANCH_COVERAGE%"
+  echo "Please add tests to increase coverage before committing."
+  exit 1
+fi
+
+echo "✅ Code coverage meets requirements!"
+echo "✅ All pre-commit checks passed!"
+exit 0
