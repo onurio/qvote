@@ -12,3 +12,7 @@ prisma/.env
 # SSL/TLS Certificates
 certs/*.pem
 certs/*.key
+
+# coverage
+cov_profile/
+coverage/

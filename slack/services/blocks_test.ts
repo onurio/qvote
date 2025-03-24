@@ -1,5 +1,12 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
-import { createVoteBlocks, SlackBlock } from "./blocks.ts";
+import {
+  createErrorMessageBlocks,
+  createInfoMessageBlocks,
+  createResultsBlocks,
+  createSuccessMessageBlocks,
+  createVoteBlocks,
+  SlackBlock,
+} from "./blocks.ts";
 
 // Define more specific types for testing
 interface HeaderBlock extends SlackBlock {
@@ -173,4 +180,162 @@ Deno.test("createVoteBlocks handles restricted voters correctly", () => {
     (blocks[3] as SectionBlock).text.text,
     "*Note:* This vote is restricted to specific users",
   );
+});
+
+Deno.test("createSuccessMessageBlocks creates proper success message UI", () => {
+  const title = "Success Message";
+  const message = "Operation completed successfully";
+
+  const blocks = createSuccessMessageBlocks(title, message);
+
+  // Verify we get exactly 2 blocks: header and section
+  assertEquals(blocks.length, 2);
+
+  // Verify header block
+  assertEquals(blocks[0].type, "header");
+  assertEquals((blocks[0] as HeaderBlock).text.type, "plain_text");
+  assertEquals((blocks[0] as HeaderBlock).text.text, "✅ Success Message");
+
+  // Verify message block
+  assertEquals(blocks[1].type, "section");
+  assertEquals((blocks[1] as SectionBlock).text.type, "mrkdwn");
+  assertEquals((blocks[1] as SectionBlock).text.text, "Operation completed successfully");
+});
+
+Deno.test("createErrorMessageBlocks creates proper error message UI", () => {
+  const title = "Error Occurred";
+  const message = "Something went wrong with the operation";
+
+  const blocks = createErrorMessageBlocks(title, message);
+
+  // Verify we get exactly 2 blocks: header and section
+  assertEquals(blocks.length, 2);
+
+  // Verify header block with error icon
+  assertEquals(blocks[0].type, "header");
+  assertEquals((blocks[0] as HeaderBlock).text.type, "plain_text");
+  assertEquals((blocks[0] as HeaderBlock).text.text, "❌ Error Occurred");
+
+  // Verify message block
+  assertEquals(blocks[1].type, "section");
+  assertEquals((blocks[1] as SectionBlock).text.type, "mrkdwn");
+  assertEquals((blocks[1] as SectionBlock).text.text, "Something went wrong with the operation");
+});
+
+Deno.test("createInfoMessageBlocks creates proper info message UI", () => {
+  const title = "Information Notice";
+  const message = "Here's some important information";
+
+  const blocks = createInfoMessageBlocks(title, message);
+
+  // Verify we get exactly 2 blocks: header and section
+  assertEquals(blocks.length, 2);
+
+  // Verify header block with info icon
+  assertEquals(blocks[0].type, "header");
+  assertEquals((blocks[0] as HeaderBlock).text.type, "plain_text");
+  assertEquals((blocks[0] as HeaderBlock).text.text, "ℹ️ Information Notice");
+
+  // Verify message block
+  assertEquals(blocks[1].type, "section");
+  assertEquals((blocks[1] as SectionBlock).text.type, "mrkdwn");
+  assertEquals((blocks[1] as SectionBlock).text.text, "Here's some important information");
+});
+
+Deno.test("createResultsBlocks creates proper results display", () => {
+  // Mock vote data
+  const vote = {
+    id: "vote-123",
+    workspaceId: "workspace-123",
+    channelId: "channel-123",
+    creatorId: "creator-123",
+    title: "Test Vote Results",
+    description: "This is a vote with results",
+    options: ["Option 1", "Option 2", "Option 3"],
+    allowedVoters: null,
+    creditsPerUser: 100,
+    startTime: new Date(),
+    endTime: new Date(),
+    isEnded: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  // Mock vote results - option, totalCredits pairs
+  const voteResults = [
+    { option: "Option 1", totalCredits: 64 }, // 8 votes (sqrt(64))
+    { option: "Option 2", totalCredits: 36 }, // 6 votes (sqrt(36))
+    { option: "Option 3", totalCredits: 9 }, // 3 votes (sqrt(9))
+  ];
+
+  const blocks = createResultsBlocks(vote, voteResults);
+
+  // Verify header block has results title
+  assertEquals(blocks[0].type, "header");
+  assertEquals((blocks[0] as HeaderBlock).text.type, "plain_text");
+  assertEquals((blocks[0] as HeaderBlock).text.text, "📊 Results: Test Vote Results");
+
+  // Verify description is included
+  assertEquals(blocks[1].type, "section");
+  assertEquals((blocks[1] as SectionBlock).text.text, "This is a vote with results");
+
+  // Verify explanatory text about quadratic voting
+  assertEquals(blocks[2].type, "section");
+  assertStringIncludes(
+    (blocks[2] as SectionBlock).text.text,
+    "Quadratic voting",
+  );
+
+  // Verify results section contains all options and their vote calculations
+  assertEquals(blocks[3].type, "section");
+  const resultsText = (blocks[3] as SectionBlock).text.text;
+
+  // Check Option 1 details
+  assertStringIncludes(resultsText, "*1.* Option 1: 8 votes (47%)");
+  assertStringIncludes(resultsText, "64 credits");
+
+  // Check Option 2 details
+  assertStringIncludes(resultsText, "*2.* Option 2: 6 votes (35%)");
+  assertStringIncludes(resultsText, "36 credits");
+
+  // Check Option 3 details
+  assertStringIncludes(resultsText, "*3.* Option 3: 3 votes (18%)");
+  assertStringIncludes(resultsText, "9 credits");
+});
+
+Deno.test("createResultsBlocks handles empty results", () => {
+  // Mock vote data with no results
+  const vote = {
+    id: "vote-123",
+    workspaceId: "workspace-123",
+    channelId: "channel-123",
+    creatorId: "creator-123",
+    title: "Test Vote No Results",
+    description: null, // No description
+    options: ["Option 1", "Option 2"],
+    allowedVoters: null,
+    creditsPerUser: 100,
+    startTime: new Date(),
+    endTime: new Date(),
+    isEnded: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  // Empty results array
+  const voteResults: { option: string; totalCredits: number }[] = [];
+
+  const blocks = createResultsBlocks(vote, voteResults);
+
+  // Verify header is still there
+  assertEquals(blocks[0].type, "header");
+  assertEquals((blocks[0] as HeaderBlock).text.text, "📊 Results: Test Vote No Results");
+
+  // No description block since description is null
+  assertEquals(blocks[1].type, "section"); // Should be the voting explainer
+
+  // Last block should be the results section with "No votes" message
+  const lastBlock = blocks[blocks.length - 1];
+  assertEquals(lastBlock.type, "section");
+  assertStringIncludes((lastBlock as SectionBlock).text.text, "No votes were cast.");
 });
