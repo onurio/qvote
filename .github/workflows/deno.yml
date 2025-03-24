@@ -70,6 +70,34 @@ jobs:
           USE_HTTPS: "false"
           CERT_FILE: "certs/cert.pem"
           KEY_FILE: "certs/key.pem"
+      
+      - name: Run coverage check
+        run: |
+          # Make the pre-commit hook script executable
+          chmod +x hooks/pre-commit
+          
+          # Remove deno task check:all from the script (we already did these checks)
+          sed -i 's/deno task check:all/echo "Skipping check:all as tests were already run"/g' hooks/pre-commit
+          
+          # Run just the coverage check portion of the script
+          ./hooks/pre-commit
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: test
+          DB_PASSWORD: test
+          DB_NAME: test
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+          SLACK_CLIENT_ID: "test_client_id"
+          SLACK_CLIENT_SECRET: "test_client_secret"
+          SLACK_REDIRECT_URI: "https://example.com/oauth/callback"
+          
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: cov_profile/
+          retention-days: 14
 
   build:
     runs-on: ubuntu-latest
