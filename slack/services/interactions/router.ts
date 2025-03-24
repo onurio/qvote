@@ -1,6 +1,7 @@
 import { InteractionResponse, SlackInteraction } from "./types.ts";
 import { handleCreateVoteSubmission } from "./vote-creation.ts";
-import { handleEndVote, handleShowVoteResults } from "./vote-management.ts";
+import { handleEndVote } from "./handlers/end-vote.ts";
+import { handleShowVoteResults } from "./handlers/show-results.ts";
 import { handleOpenVoteModal } from "./vote-modal.ts";
 import { handleVoteSubmission } from "./vote-submission.ts";
 import logger from "@utils/logger.ts";

@@ -2,7 +2,7 @@ import { getVoteById, recordVoteResponse } from "@db/votes.ts";
 import { createErrorMessageBlocks } from "../blocks.ts";
 import { InteractionResponse, SlackInteraction } from "./types.ts";
 import logger from "@utils/logger.ts";
-import { checkAndAutoEndVote } from "./vote-management.ts";
+import { checkAndAutoEndVote } from "./vote-auto-end.ts";
 
 // Handle vote submission from an existing vote
 export async function handleVoteSubmission(
