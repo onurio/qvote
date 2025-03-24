@@ -1,4 +1,5 @@
 import { getVoteById, recordVoteResponse } from "@db/votes.ts";
+import { createErrorMessageBlocks } from "../blocks.ts";
 import { InteractionResponse, SlackInteraction } from "./types.ts";
 import logger from "@utils/logger.ts";
 import { checkAndAutoEndVote } from "./vote-management.ts";
@@ -18,6 +19,10 @@ export async function handleVoteSubmission(
       body: {
         response_type: "ephemeral",
         text: "No vote ID found in submission metadata.",
+        blocks: createErrorMessageBlocks(
+          "Missing Information",
+          "No vote ID found in submission metadata.",
+        ),
       },
     };
   }
@@ -32,6 +37,7 @@ export async function handleVoteSubmission(
         body: {
           response_type: "ephemeral",
           text: "Vote not found.",
+          blocks: createErrorMessageBlocks("Not Found", "Vote not found."),
         },
       };
     }
@@ -43,7 +49,11 @@ export async function handleVoteSubmission(
 
     // Check if this user is allowed to vote
     const allowedVoters = vote.allowedVoters as string[] | null;
-    if (allowedVoters && allowedVoters.length > 0 && !allowedVoters.includes(userId)) {
+    if (
+      allowedVoters &&
+      allowedVoters.length > 0 &&
+      !allowedVoters.includes(userId)
+    ) {
       return {
         status: 200,
         body: {
@@ -123,7 +133,8 @@ export async function handleVoteSubmission(
       if (state[blockId] && state[blockId][actionId]) {
         const credits = parseInt(state[blockId][actionId].value || "0", 10) || 0;
 
-        if (credits >= 0) { // Allow zero credits to clear previous votes
+        if (credits >= 0) {
+          // Allow zero credits to clear previous votes
           // Record this option's votes
           await recordVoteResponse(vote.id, userId, i, credits);
         }

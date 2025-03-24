@@ -1,5 +1,10 @@
-import { endVote, getVoteById, getVoteResults } from "../../../db/votes.ts";
-import { createVoteBlocks } from "../blocks.ts";
+import { endVote, getVoteById, getVoteResults } from "@db/votes.ts";
+import {
+  createErrorMessageBlocks,
+  createInfoMessageBlocks,
+  createResultsBlocks,
+  createVoteBlocks,
+} from "@slack/services/blocks.ts";
 import { InteractionResponse, SlackBlock, SlackInteraction } from "./types.ts";
 import { getWorkspaceToken } from "./workspace-utils.ts";
 import logger from "@utils/logger.ts";
@@ -10,18 +15,23 @@ import logger from "@utils/logger.ts";
  * @param voteId The ID of the vote to check
  * @param userId The ID of the user who just voted (to make sure they're included in the count)
  */
-export async function checkAndAutoEndVote(voteId: string, userId: string): Promise<void> {
+export async function checkAndAutoEndVote(
+  voteId: string,
+  userId: string,
+): Promise<void> {
   try {
     // Get latest vote data with all responses
     const vote = await getVoteById(voteId);
 
-    if (!vote || vote.isEnded || !vote.allowedVoters) {
-      // Vote not found, already ended, or doesn't have allowed voters restriction
+    if (!vote || vote.isEnded) {
+      // Vote not found or already ended
       return;
     }
 
-    const allowedVoters = vote.allowedVoters as string[];
-    if (allowedVoters.length === 0) {
+    // Check if there are allowed voters restrictions
+    const allowedVoters = vote.allowedVoters as string[] | null;
+
+    if (!allowedVoters || allowedVoters.length === 0) {
       // No allowed voters restriction
       return;
     }
@@ -29,7 +39,8 @@ export async function checkAndAutoEndVote(voteId: string, userId: string): Promi
     // Get all unique user IDs that have voted
     const voterIds = new Set();
     vote.responses.forEach((response) => {
-      if (response.credits > 0) { // Only count users who gave credits
+      if (response.credits > 0) {
+        // Only count users who gave credits
         voterIds.add(response.userId);
       }
     });
@@ -42,9 +53,12 @@ export async function checkAndAutoEndVote(voteId: string, userId: string): Promi
     if (allVoted) {
       // End the vote automatically
       await endVote(vote.id);
-      logger.info("Vote ended automatically because all participants have voted", {
-        voteId: vote.id,
-      });
+      logger.info(
+        "Vote ended automatically because all participants have voted",
+        {
+          voteId: vote.id,
+        },
+      );
 
       // Update UI message
       await updateVoteMessage(vote);
@@ -67,7 +81,9 @@ async function updateVoteMessage(vote: {
   try {
     const workspaceToken = await getWorkspaceToken(vote.workspaceId);
     if (!workspaceToken) {
-      logger.warn("Could not get workspace token for vote message update", { voteId: vote.id });
+      logger.warn("Could not get workspace token for vote message update", {
+        voteId: vote.id,
+      });
       return;
     }
 
@@ -97,17 +113,16 @@ async function updateVoteMessage(vote: {
     }
 
     // Look for a message that contains the vote ID
-    const voteMessage = history.messages.find((msg: {
-      text?: string;
-      blocks?: unknown;
-      ts: string;
-    }) =>
-      msg.text?.includes(vote.id) ||
-      (msg.blocks && JSON.stringify(msg.blocks).includes(vote.id))
+    const voteMessage = history.messages.find(
+      (msg: { text?: string; blocks?: unknown; ts: string }) =>
+        msg.text?.includes(vote.id) ||
+        (msg.blocks && JSON.stringify(msg.blocks).includes(vote.id)),
     );
 
     if (!voteMessage) {
-      logger.warn("Could not find vote message in channel history", { voteId: vote.id });
+      logger.warn("Could not find vote message in channel history", {
+        voteId: vote.id,
+      });
       return;
     }
 
@@ -169,6 +184,7 @@ export async function handleEndVote(
         body: {
           text: "Vote not found.",
           response_type: "ephemeral",
+          blocks: createErrorMessageBlocks("Not Found", "Vote not found."),
         },
       };
     }
@@ -180,6 +196,10 @@ export async function handleEndVote(
         body: {
           text: "Only the creator of the vote can end it.",
           response_type: "ephemeral",
+          blocks: createErrorMessageBlocks(
+            "Permission Denied",
+            "Only the creator of the vote can end it.",
+          ),
         },
       };
     }
@@ -198,6 +218,10 @@ export async function handleEndVote(
         body: {
           text: "Workspace not found or authentication error.",
           response_type: "ephemeral",
+          blocks: createErrorMessageBlocks(
+            "Authentication Error",
+            "Workspace not found or authentication error.",
+          ),
         },
       };
     }
@@ -207,7 +231,8 @@ export async function handleEndVote(
 
     try {
       // Need to handle the message property which might not exist in all payload types
-      const messageTs = (payload as unknown as { message?: { ts: string } }).message?.ts;
+      const messageTs = (payload as unknown as { message?: { ts: string } })
+        .message?.ts;
       if (!messageTs) {
         console.warn("Could not find message timestamp in payload");
         return {
@@ -215,6 +240,10 @@ export async function handleEndVote(
           body: {
             text: "Vote has been ended, but the original message couldn't be updated.",
             response_type: "ephemeral",
+            blocks: createInfoMessageBlocks(
+              "Vote Ended",
+              "Vote has been ended, but the original message couldn't be updated.",
+            ),
           },
         };
       }
@@ -247,44 +276,24 @@ export async function handleEndVote(
     // Format results for display
     const { vote: updatedVote, results: voteResults } = results;
 
-    // Calculate total votes (square root of credits) for quadratic voting
-    const totalVotes = voteResults.reduce(
-      (sum, r) => sum + Math.sqrt(r.totalCredits),
-      0,
-    );
-
-    // Format results text
-    const resultsText = voteResults
-      .map((r, i) => {
-        // Calculate actual votes (square root of credits)
-        const actualVotes = Math.round(Math.sqrt(r.totalCredits) * 10) / 10;
-        const percentage = totalVotes > 0
-          ? Math.round((Math.sqrt(r.totalCredits) / totalVotes) * 100)
-          : 0;
-
-        return `*${
-          i + 1
-        }.* ${r.option}: ${actualVotes} votes (${percentage}%) - ${r.totalCredits} credits`;
-      })
-      .join("\n");
-
     // Send an ephemeral message with the results
     return {
       status: 200,
       body: {
-        text: `:checkered_flag: *Vote "${updatedVote.title}" has been ended*\n\n${
-          resultsText || "No votes were cast."
-        }`,
+        text: `Vote "${updatedVote.title}" has been ended`,
         response_type: "ephemeral",
+        blocks: createResultsBlocks(updatedVote, voteResults),
       },
     };
   } catch (error) {
     console.error("Error ending vote:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       status: 200,
       body: {
-        text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        text: `Error: ${errorMessage}`,
         response_type: "ephemeral",
+        blocks: createErrorMessageBlocks("Error Ending Vote", errorMessage),
       },
     };
   }
@@ -305,6 +314,10 @@ export async function handleShowVoteResults(
       body: {
         text: "No vote ID was provided.",
         response_type: "ephemeral",
+        blocks: createErrorMessageBlocks(
+          "Missing Information",
+          "No vote ID was provided.",
+        ),
       },
     };
   }
@@ -326,6 +339,10 @@ export async function handleShowVoteResults(
         body: {
           text: "Vote results not found.",
           response_type: "ephemeral",
+          blocks: createErrorMessageBlocks(
+            "Not Found",
+            "Vote results not found.",
+          ),
         },
       };
     }
@@ -426,26 +443,12 @@ export async function handleShowVoteResults(
 
       // Send the response directly to the response_url
       try {
-        // Instead of sending blocks with emojis, send a simpler text response
+        // Use blocks for a richer display
         const message = {
           response_type: "ephemeral",
-          text:
-            `*Results for "${vote.title}"*\n\n${
-              vote.description ? vote.description + "\n\n" : ""
-            }` +
-            "_Quadratic voting: votes = √credits_\n\n" +
-            voteResults
-              .map((r, i) => {
-                const votes = Math.round(Math.sqrt(r.totalCredits) * 10) / 10;
-                const percentage = totalVotes > 0
-                  ? Math.round((Math.sqrt(r.totalCredits) / totalVotes) * 100)
-                  : 0;
-                return `*${
-                  i + 1
-                }.* ${r.option}: ${votes} votes (${percentage}%) - ${r.totalCredits} credits`;
-              })
-              .join("\n"),
-          replace_original: false,
+          text: `Results for "${vote.title}"`, // Fallback text
+          blocks: createResultsBlocks(vote, voteResults),
+          replace_original: true,
         };
 
         console.log(
@@ -461,6 +464,7 @@ export async function handleShowVoteResults(
           body: JSON.stringify(message),
         });
 
+        console.error("Response status:", await slackResponse.json());
         const responseData = await slackResponse.text();
         console.log("Response from Slack:", responseData);
       } catch (error) {
@@ -480,11 +484,13 @@ export async function handleShowVoteResults(
     return response;
   } catch (error) {
     console.error("Error showing vote results:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       status: 200,
       body: {
-        text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        text: `Error: ${errorMessage}`,
         response_type: "ephemeral",
+        blocks: createErrorMessageBlocks("Error Showing Results", errorMessage),
       },
     };
   }

@@ -24,7 +24,6 @@ export function createVoteBlocks(vote: Vote, _botUserId: string) {
       text: {
         type: "plain_text",
         text: `:ballot_box: ${vote.title}`,
-        emoji: true,
       },
     },
   ];
@@ -76,7 +75,6 @@ export function createVoteBlocks(vote: Vote, _botUserId: string) {
       text: {
         type: "plain_text",
         text: "Vote",
-        emoji: true,
       },
       value: `vote_${vote.id}`,
       action_id: "open_vote_modal",
@@ -90,7 +88,6 @@ export function createVoteBlocks(vote: Vote, _botUserId: string) {
       text: {
         type: "plain_text",
         text: "Results",
-        emoji: true,
       },
       value: `results_${vote.id}`,
       action_id: "show_vote_results",
@@ -104,7 +101,6 @@ export function createVoteBlocks(vote: Vote, _botUserId: string) {
       text: {
         type: "plain_text",
         text: "End Vote",
-        emoji: true,
       },
       value: `end_${vote.id}`,
       action_id: "end_vote",
@@ -143,6 +139,156 @@ export function createVoteBlocks(vote: Vote, _botUserId: string) {
         text: `Created by <@${vote.creatorId}> | Vote ID: ${vote.id}`,
       },
     ],
+  });
+
+  return blocks;
+}
+
+/**
+ * Creates standard message blocks for success messages
+ */
+export function createSuccessMessageBlocks(
+  title: string,
+  message: string,
+): SlackBlock[] {
+  return [
+    {
+      type: "header",
+      text: {
+        type: "plain_text",
+        text: `✅ ${title}`,
+      },
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: message,
+      },
+    },
+  ];
+}
+
+/**
+ * Creates standard message blocks for error messages
+ */
+export function createErrorMessageBlocks(
+  title: string,
+  message: string,
+): SlackBlock[] {
+  return [
+    {
+      type: "header",
+      text: {
+        type: "plain_text",
+        text: `❌ ${title}`,
+      },
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: message,
+      },
+    },
+  ];
+}
+
+/**
+ * Creates standard message blocks for info/notice messages
+ */
+export function createInfoMessageBlocks(
+  title: string,
+  message: string,
+): SlackBlock[] {
+  return [
+    {
+      type: "header",
+      text: {
+        type: "plain_text",
+        text: `ℹ️ ${title}`,
+      },
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: message,
+      },
+    },
+  ];
+}
+
+/**
+ * Creates standard message blocks for results
+ */
+export function createResultsBlocks(
+  vote: Vote,
+  voteResults: { option: string; totalCredits: number }[],
+): SlackBlock[] {
+  const blocks: SlackBlock[] = [
+    {
+      type: "header",
+      text: {
+        type: "plain_text",
+        text: `📊 Results: ${vote.title}`,
+      },
+    },
+  ];
+
+  // Add description if available
+  if (vote.description) {
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: vote.description,
+      },
+    });
+  }
+
+  // Add quadratic voting explainer
+  blocks.push({
+    type: "section",
+    text: {
+      type: "mrkdwn",
+      text:
+        "_Quadratic voting: votes = √credits. Cost increases quadratically with each vote: 1 vote = 1 credit, 2 votes = 4 credits, etc._",
+    },
+  });
+
+  // Calculate total votes (square root of credits)
+  const totalVotes = voteResults.reduce(
+    (sum, r) => sum + Math.sqrt(r.totalCredits),
+    0,
+  );
+
+  // Format results
+  const resultsText = voteResults
+    .map((r, i) => {
+      // Calculate actual votes (square root of credits)
+      const actualVotes = Math.round(Math.sqrt(r.totalCredits) * 10) / 10;
+      const percentage = totalVotes > 0
+        ? Math.round((Math.sqrt(r.totalCredits) / totalVotes) * 100)
+        : 0;
+
+      // Create visual bar based on percentage
+      const barLength = Math.max(1, Math.round(percentage / 5)); // Max 20 segments (for 100%)
+      const bar = "█".repeat(barLength);
+
+      // Show both votes and credits with visual bar
+      return `*${
+        i + 1
+      }.* ${r.option}: ${actualVotes} votes (${percentage}%)\n${bar} ${r.totalCredits} credits`;
+    })
+    .join("\n\n");
+
+  blocks.push({
+    type: "section",
+    text: {
+      type: "mrkdwn",
+      text: resultsText || "No votes were cast.",
+    },
   });
 
   return blocks;

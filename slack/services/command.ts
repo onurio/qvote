@@ -1,6 +1,6 @@
 import { Workspace } from "../../node_modules/generated/index.d.ts";
 import { openVoteCreationModal } from "./interactions.ts";
-import { SlackBlock } from "./blocks.ts";
+import { createErrorMessageBlocks, createInfoMessageBlocks, SlackBlock } from "./blocks.ts";
 
 // Define the structure of a Slack slash command request
 export interface SlackRequest {
@@ -14,17 +14,14 @@ export interface SlackRequest {
 }
 
 // Response structure for command handling
-
 export interface CommandResponse {
   status: number;
-  body: {
+  body?: {
     response_type: "ephemeral" | "in_channel";
-    text?: string;
+    text?: string; // Fallback text for clients that don't support blocks
     blocks?: SlackBlock[];
   };
 }
-
-// Validation has been moved to middleware/slack.ts
 
 // Route the command to the appropriate handler
 export async function routeSlackCommand(
@@ -39,6 +36,10 @@ export async function routeSlackCommand(
       body: {
         response_type: "ephemeral",
         text: "Unknown command. Currently only /qvote is supported.",
+        blocks: createInfoMessageBlocks(
+          "Unknown Command",
+          "Currently only `/qvote` is supported.",
+        ),
       },
     };
   }
@@ -65,6 +66,10 @@ async function handleQVoteCommand(
         body: {
           response_type: "ephemeral",
           text: modalResponse.body.text as string,
+          blocks: createErrorMessageBlocks(
+            "Error",
+            modalResponse.body.text as string,
+          ),
         },
       };
     }
@@ -72,18 +77,19 @@ async function handleQVoteCommand(
     // Modal opened successfully, return empty ephemeral message
     return {
       status: 200,
-      body: {
-        response_type: "ephemeral",
-        text: "",
-      },
     };
   } catch (error) {
     console.error("Error opening vote creation modal:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       status: 200,
       body: {
         response_type: "ephemeral",
-        text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        text: `Error: ${errorMessage}`,
+        blocks: createErrorMessageBlocks(
+          "Error Opening Vote Modal",
+          errorMessage,
+        ),
       },
     };
   }

@@ -1,5 +1,5 @@
 import { createVote } from "@db/votes.ts";
-import { createVoteBlocks } from "../blocks.ts";
+import { createErrorMessageBlocks, createVoteBlocks } from "../blocks.ts";
 import { InteractionResponse, SlackInteraction } from "./types.ts";
 import { createVoteCreationModalView, createVoteSuccessModalView } from "./templates.ts";
 import { getWorkspaceToken } from "./workspace-utils.ts";
@@ -39,13 +39,16 @@ export async function handleCreateVoteSubmission(
         allowedVotersObj as unknown as { selected_users: string[] }
       ).selected_users;
 
-      // Always include the creator in allowed voters
-      if (!selectedUsers.includes(payload.user.id)) {
-        selectedUsers.push(payload.user.id);
-      }
+      // Only set allowedVoters if users were actually selected
+      if (selectedUsers.length > 0) {
+        // Include the creator in allowed voters if specific users were selected
+        if (!selectedUsers.includes(payload.user.id)) {
+          selectedUsers.push(payload.user.id);
+        }
 
-      allowedVoters = selectedUsers;
-      logger.debug("Selected allowed voters", allowedVoters);
+        allowedVoters = selectedUsers;
+        logger.debug("Selected allowed voters", allowedVoters);
+      }
     }
 
     const creditsText = state.vote_credits?.vote_credits_input?.value || "100";
@@ -150,6 +153,10 @@ export async function handleCreateVoteSubmission(
         body: {
           text: "Workspace not found or authentication error.",
           response_type: "ephemeral",
+          blocks: createErrorMessageBlocks(
+            "Authentication Error",
+            "Workspace not found or authentication error.",
+          ),
         },
       };
     }
@@ -219,6 +226,10 @@ export async function handleCreateVoteSubmission(
             user: payload.user.id,
             text:
               `Your vote "${title}" was created, but I couldn't post it to the channel. Make sure to invite me to the channel first with /invite @QVote.`,
+            blocks: createErrorMessageBlocks(
+              "Vote Created - Channel Issue",
+              `Your vote "${title}" was created, but I couldn't post it to the channel. Make sure to invite me to the channel first with /invite @QVote.`,
+            ),
           }),
         });
       } catch (ephemeralError) {
@@ -268,6 +279,10 @@ export async function openVoteCreationModal(
         body: {
           text: "Workspace not found or authentication error.",
           response_type: "ephemeral",
+          blocks: createErrorMessageBlocks(
+            "Authentication Error",
+            "Workspace not found or authentication error.",
+          ),
         },
       };
     }
@@ -299,6 +314,10 @@ export async function openVoteCreationModal(
         body: {
           text: `Error opening vote creation modal: ${result.error}`,
           response_type: "ephemeral",
+          blocks: createErrorMessageBlocks(
+            "Modal Error",
+            `Error opening vote creation modal: ${result.error}`,
+          ),
         },
       };
     }
@@ -315,6 +334,10 @@ export async function openVoteCreationModal(
       body: {
         text: `Error: ${error instanceof Error ? error.message : String(error)}`,
         response_type: "ephemeral",
+        blocks: createErrorMessageBlocks(
+          "Error",
+          `${error instanceof Error ? error.message : String(error)}`,
+        ),
       },
     };
   }
