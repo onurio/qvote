@@ -1,5 +1,6 @@
 import { Router } from "jsr:@oak/oak/router";
 import { validateOAuthCallback } from "../middleware/oauth.ts";
+import logger from "@utils/logger.ts";
 
 // Define types for auth service functions for testing
 export type GenerateAuthUrlType = () => string;
@@ -39,13 +40,18 @@ let authService: AuthService = {
 
 // Database function
 let saveWorkspaceFunc:
-  | ((teamId: string, teamName: string, accessToken: string, botUserId: string) => Promise<unknown>)
+  | ((
+    teamId: string,
+    teamName: string,
+    accessToken: string,
+    botUserId: string,
+  ) => Promise<unknown>)
   | null = null;
 
 // Load the database function
 (async () => {
   try {
-    const { saveWorkspace } = await import("../db/workspace.ts");
+    const { saveWorkspace } = await import("@db/workspace.ts");
     saveWorkspaceFunc = saveWorkspace;
   } catch (err) {
     console.error("Error loading saveWorkspace:", err);
@@ -101,9 +107,9 @@ router.get("/oauth/callback", validateOAuthCallback, async (ctx) => {
     try {
       if (saveWorkspaceFunc) {
         await saveWorkspaceFunc(teamId, teamName, accessToken, botUserId);
-        console.log(`Workspace saved: ${teamName} (${teamId})`);
+        logger.info(`Workspace saved: ${teamName} (${teamId})`);
       } else {
-        console.log("Save workspace function not available");
+        logger.error("Save workspace function not available");
       }
     } catch (_err) {
       console.log("Test environment detected, skipping database save");

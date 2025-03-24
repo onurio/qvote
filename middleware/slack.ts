@@ -13,9 +13,6 @@ export async function validateSlackWorkspace(ctx: Context, next: Next) {
     // Parse form data from Slack using the correct approach for Oak v17
     const form = await ctx.request.body.form();
 
-    // Log the form data for debugging
-    console.log("Received form data:", form);
-
     // Extract Slack request parameters
     const slackRequest: SlackRequest = {
       command: form.get("command") || "",
@@ -30,7 +27,6 @@ export async function validateSlackWorkspace(ctx: Context, next: Next) {
     // In production, you should verify the request using the Slack signing secret
     // https://api.slack.com/authentication/verifying-requests-from-slack
 
-    console.log("teamId:", form.get("team_id"));
     // Verify the workspace exists
     const workspace = await getWorkspaceByTeamId(slackRequest.teamId);
 
