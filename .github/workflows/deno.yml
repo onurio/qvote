@@ -66,6 +66,7 @@ jobs:
           SLACK_CLIENT_ID: "test_client_id"
           SLACK_CLIENT_SECRET: "test_client_secret"
           SLACK_REDIRECT_URI: "https://example.com/oauth/callback"
+          SLACK_SIGNING_SECRET: "test_signing_secret"
           PORT: "8443"
           USE_HTTPS: "false"
           CERT_FILE: "certs/cert.pem"
@@ -91,6 +92,7 @@ jobs:
           SLACK_CLIENT_ID: "test_client_id"
           SLACK_CLIENT_SECRET: "test_client_secret"
           SLACK_REDIRECT_URI: "https://example.com/oauth/callback"
+          SLACK_SIGNING_SECRET: "test_signing_secret"
           
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4
