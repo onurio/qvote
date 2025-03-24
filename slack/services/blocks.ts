@@ -1,4 +1,4 @@
-import { Vote } from "../../node_modules/generated/index.d.ts";
+import { Vote } from "generated/index.d.ts";
 
 // Define the structure for Slack blocks
 export interface SlackBlock {

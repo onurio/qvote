@@ -1,8 +1,8 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 
 // Import modules we need to mock first
-import * as prismaModule from "../../db/prisma.ts";
-import * as votesModule from "../../db/votes.ts";
+import * as prismaModule from "@db/prisma.ts";
+import * as votesModule from "@db/votes.ts";
 import * as blocksModule from "./blocks.ts";
 
 // Mock data for tests
@@ -46,7 +46,12 @@ import { routeSlackInteraction as _originalRouteSlackInteraction } from "./inter
 interface SlackPayload {
   type: string;
   user: { id: string };
-  actions?: { action_id: string; value: string; block_id: string; type: string }[];
+  actions?: {
+    action_id: string;
+    value: string;
+    block_id: string;
+    type: string;
+  }[];
   [key: string]: unknown;
 }
 
@@ -106,9 +111,13 @@ async function testRouteSlackInteraction(
     const getVoteByIdMock = mocks.getVoteById || (() => Promise.resolve(mockVote));
     const endVoteMock = mocks.endVote || (() => Promise.resolve(mockEndedVote));
     const getVoteResultsMock = mocks.getVoteResults || (() => Promise.resolve(mockVoteResults));
-    const createVoteBlocksMock = mocks.createVoteBlocks || (() => [
-      { type: "header", text: { type: "plain_text", text: "Test Vote", emoji: true } },
-    ]);
+    const createVoteBlocksMock = mocks.createVoteBlocks ||
+      (() => [
+        {
+          type: "header",
+          text: { type: "plain_text", text: "Test Vote", emoji: true },
+        },
+      ]);
 
     // Override imported modules in scope with local mocks
     const localVotesModule = {
@@ -122,12 +131,19 @@ async function testRouteSlackInteraction(
     };
 
     // Define our wrapper function implementation
-    const routeSlackInteractionWithMocks = async (payload: SlackPayload, _workspaceId: string) => {
+    const routeSlackInteractionWithMocks = async (
+      payload: SlackPayload,
+      _workspaceId: string,
+    ) => {
       // This is a simplified version just for testing that handles the specific
       // test cases we have. It mimics the real implementation but uses our mocks.
 
       // Handle actions based on type
-      if (payload.type === "block_actions" && payload.actions && payload.actions.length > 0) {
+      if (
+        payload.type === "block_actions" &&
+        payload.actions &&
+        payload.actions.length > 0
+      ) {
         const action = payload.actions[0];
 
         // Handle the "end_vote" action

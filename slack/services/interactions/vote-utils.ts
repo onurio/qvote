@@ -3,7 +3,7 @@ import { createVoteBlocks } from "@slack/services/blocks.ts";
 import { InteractionResponse } from "./types.ts";
 import { createErrorMessageBlocks } from "../blocks.ts";
 import logger from "@utils/logger.ts";
-import { Vote } from "../../../node_modules/generated/index.d.ts";
+import { Vote } from "generated/index.d.ts";
 
 // Define VoteResult type to make it shareable
 export interface VoteResult {
@@ -172,12 +172,15 @@ export async function updateOriginalMessageAfterVoteEnd(
 /**
  * Updates the Slack message containing the vote to reflect current state
  */
-export async function updateVoteMessage(vote: {
-  id: string;
-  workspaceId: string;
-  channelId: string;
-  title: string;
-}, workspaceToken: string): Promise<void> {
+export async function updateVoteMessage(
+  vote: {
+    id: string;
+    workspaceId: string;
+    channelId: string;
+    title: string;
+  },
+  workspaceToken: string,
+): Promise<void> {
   try {
     // Get updated vote with current state
     const updatedVote = await getVoteById(vote.id);
@@ -208,7 +211,10 @@ export async function sendResultsViaResponseUrl(
   vote: Vote,
   voteResults: VoteResult[],
   responseUrl: string,
-  createResultsBlocks: (vote: Vote, results: VoteResult[]) => Record<string, unknown>[],
+  createResultsBlocks: (
+    vote: Vote,
+    results: VoteResult[],
+  ) => Record<string, unknown>[],
 ): Promise<void> {
   try {
     // Use blocks for a richer display

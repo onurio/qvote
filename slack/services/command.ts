@@ -1,4 +1,4 @@
-import { Workspace } from "../../node_modules/generated/index.d.ts";
+import { Workspace } from "generated/index.d.ts";
 import { openVoteCreationModal } from "./interactions.ts";
 import { createErrorMessageBlocks, createInfoMessageBlocks, SlackBlock } from "./blocks.ts";
 

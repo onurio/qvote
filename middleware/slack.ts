@@ -1,6 +1,7 @@
 import { Context, Next } from "jsr:@oak/oak";
 import { getWorkspaceByTeamId } from "../db/workspace.ts";
 import { SlackRequest } from "../slack/services/command.ts";
+import logger from "@utils/logger.ts";
 
 /**
  * Middleware to validate Slack requests and verify workspace permissions
@@ -24,9 +25,6 @@ export async function validateSlackWorkspace(ctx: Context, next: Next) {
       triggerId: form.get("trigger_id") || "",
     };
 
-    // In production, you should verify the request using the Slack signing secret
-    // https://api.slack.com/authentication/verifying-requests-from-slack
-
     // Verify the workspace exists
     const workspace = await getWorkspaceByTeamId(slackRequest.teamId);
 
@@ -49,11 +47,10 @@ export async function validateSlackWorkspace(ctx: Context, next: Next) {
     // Continue to the next middleware or route handler
     await next();
   } catch (error) {
-    console.error("Error in Slack middleware:", error);
+    logger.error("Error in Slack middleware:", error);
     // Add more detailed logging to help debugging
-    console.error("Request:", ctx.request);
-    console.error("Request details:", {
-      headers: ctx.request.headers,
+    logger.error("Request details:", {
+      headers: Object.fromEntries(ctx.request.headers.entries()),
       method: ctx.request.method,
       url: ctx.request.url.toString(),
     });

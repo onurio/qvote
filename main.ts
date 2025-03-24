@@ -7,6 +7,7 @@ import slackRouter from "@slack/routes.ts";
 import { closeDatabase, connectToDatabase } from "@db/prisma.ts";
 import { getHomePage } from "@ui/pages.ts";
 import logger from "@utils/logger.ts";
+import { createSlackVerifier } from "@middleware/slack-verification.ts";
 
 // Load environment variables from .env file
 await load({ export: true });
@@ -44,6 +45,15 @@ function setupServer() {
   // Add global middleware
   app.use(loggingMiddleware);
   app.use(errorHandlingMiddleware);
+
+  // Apply Slack verification to all Slack routes
+  try {
+    const verifySlackRequest = createSlackVerifier();
+    app.use(verifySlackRequest);
+  } catch (error) {
+    logger.error("Failed to set up Slack verification", error);
+    throw error; // Fail fast - Slack signature validation is required for production
+  }
 
   // Register all routers
   // Root router

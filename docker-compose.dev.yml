@@ -26,6 +26,7 @@ services:
         condition: service_healthy
     ports:
       - "${PORT:-8443}:8443"
+      - "9229:9229"
     environment:
       - SLACK_CLIENT_ID=${SLACK_CLIENT_ID}
       - SLACK_CLIENT_SECRET=${SLACK_CLIENT_SECRET}
@@ -39,7 +40,7 @@ services:
       - DB_NAME=${DB_NAME:-qvote}
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/qvote}
     command: >
-      sh -c "deno task prisma:generate && deno task dev"
+      sh -c "deno task prisma:generate && deno run --inspect=0.0.0.0:9229 --allow-net --allow-env --allow-read --allow-run --allow-ffi --watch main.ts"
     volumes:
       - .:/app
       - deno-cache:/home/deno/.cache/deno

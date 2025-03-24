@@ -67,7 +67,7 @@ router.post("/slack/interactions", async (ctx) => {
     ctx.response.type = "application/json";
     ctx.response.body = interactionResponse.body;
   } catch (error) {
-    console.error("Error in Slack interaction handler:", error);
+    logger.error("Error in Slack interaction handler:", error);
     ctx.response.status = 200; // Slack expects 200 status even for errors
     ctx.response.type = "application/json";
     ctx.response.body = {
