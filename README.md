@@ -64,6 +64,27 @@ deno task prisma:studio
 deno task dev
 ```
 
+### Install Git Hooks
+
+The project includes git hooks for code quality and coverage enforcement. To install:
+
+```bash
+# Make the install script executable
+chmod +x hooks/install-hooks.sh
+
+# Run the installation script
+./hooks/install-hooks.sh
+```
+
+This will install a pre-commit hook that enforces:
+
+- Code linting and formatting standards
+- Type checking
+- Test success
+- Minimum test coverage thresholds:
+  - Line coverage: 81%
+  - Branch coverage: 70%
+
 #### Using Docker Compose
 
 For production:
@@ -98,6 +119,7 @@ The server will start at http://localhost:8080.
 - `/prisma/` - Prisma schema and setup files
 - `/generated/` - Generated Prisma client (not committed to repo)
 - `/api/` - API endpoints for Slack interactions (future)
+- `/hooks/` - Git hooks for code quality and coverage enforcement
 - `Dockerfile` - Docker configuration for the application
 - `docker-compose.yml` - Production Docker Compose configuration
 - `docker-compose.dev.yml` - Development Docker Compose configuration with hot reload
