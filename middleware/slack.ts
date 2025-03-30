@@ -2,6 +2,7 @@ import { Context, Next } from "jsr:@oak/oak";
 import { getWorkspaceByTeamId } from "../db/workspace.ts";
 import { SlackRequest } from "../slack/services/command.ts";
 import logger from "@utils/logger.ts";
+import { prisma } from "@db/prisma.ts";
 
 /**
  * Middleware to validate Slack requests and verify workspace permissions
@@ -26,7 +27,7 @@ export async function validateSlackWorkspace(ctx: Context, next: Next) {
     };
 
     // Verify the workspace exists
-    const workspace = await getWorkspaceByTeamId(slackRequest.teamId);
+    const workspace = await getWorkspaceByTeamId(prisma, slackRequest.teamId);
 
     if (!workspace) {
       ctx.response.status = 200; // Slack expects 200 status even for errors

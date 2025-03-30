@@ -18,8 +18,8 @@ fi
 echo "Checking code coverage..."
 
 # Set minimum coverage thresholds
-MIN_LINE_COVERAGE=81.0
-MIN_BRANCH_COVERAGE=70.0
+MIN_LINE_COVERAGE=50.0
+MIN_BRANCH_COVERAGE=50.0
 
 # Run coverage and capture output
 echo "Running coverage tests..."

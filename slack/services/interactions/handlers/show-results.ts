@@ -3,6 +3,7 @@ import { createResultsBlocks } from "@slack/services/blocks.ts";
 import { InteractionResponse, SlackInteraction } from "../types.ts";
 import logger from "@utils/logger.ts";
 import { createErrorResponse, sendResultsViaResponseUrl } from "../vote-utils.ts";
+import { prisma } from "@db/prisma.ts";
 
 export async function handleShowVoteResults(
   action: NonNullable<SlackInteraction["actions"]>[number],
@@ -23,7 +24,7 @@ export async function handleShowVoteResults(
   try {
     // Get the vote results from the database
     logger.debug("Fetching vote results for ID:", voteId);
-    const results = await getVoteResults(voteId);
+    const results = await getVoteResults(prisma, voteId);
 
     if (!results) {
       logger.error("No results found for vote ID:", voteId);

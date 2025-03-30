@@ -4,6 +4,7 @@ import { InteractionResponse, SlackInteraction } from "./types.ts";
 import { createVoteCreationModalView, createVoteSuccessModalView } from "./templates.ts";
 import { getWorkspaceToken } from "./workspace-utils.ts";
 import logger from "@utils/logger.ts";
+import { prisma } from "@db/prisma.ts";
 
 // Handle the vote creation submission
 export async function handleCreateVoteSubmission(
@@ -131,7 +132,7 @@ export async function handleCreateVoteSubmission(
       // endTime removed
     });
 
-    const vote = await createVote({
+    const vote = await createVote(prisma, {
       workspaceId,
       channelId: metadata.channelId,
       creatorId: payload.user.id,
@@ -146,7 +147,7 @@ export async function handleCreateVoteSubmission(
     logger.info("Vote created successfully", { voteId: vote.id });
 
     // Get the token to post a message to the channel
-    const workspaceToken = await getWorkspaceToken(workspaceId);
+    const workspaceToken = await getWorkspaceToken(prisma, workspaceId);
     if (!workspaceToken) {
       return {
         status: 200,
@@ -272,7 +273,7 @@ export async function openVoteCreationModal(
 ): Promise<InteractionResponse> {
   try {
     // Get workspace token
-    const workspaceToken = await getWorkspaceToken(workspaceId);
+    const workspaceToken = await getWorkspaceToken(prisma, workspaceId);
     if (!workspaceToken) {
       return {
         status: 200,

@@ -1,10 +1,14 @@
-import { prisma } from "@db/prisma.ts";
 import logger from "@utils/logger.ts";
+// @ts-types="generated/index.d.ts"
+import { PrismaClient } from "generated/index.js";
 
 // Helper function to get workspace token
-export async function getWorkspaceToken(workspaceId: string): Promise<string | null> {
+export async function getWorkspaceToken(
+  db: PrismaClient,
+  workspaceId: string,
+): Promise<string | null> {
   try {
-    const workspace = await prisma.workspace.findUnique({
+    const workspace = await db.workspace.findUnique({
       where: { id: workspaceId },
     });
     return workspace?.accessToken || null;

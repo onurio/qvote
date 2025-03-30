@@ -1,4 +1,5 @@
-import { prisma } from "./prisma.ts";
+// @ts-types="generated/index.d.ts"
+import { PrismaClient } from "generated/index.js";
 
 // Interface for vote creation parameters
 interface CreateVoteParams {
@@ -14,7 +15,7 @@ interface CreateVoteParams {
 }
 
 // Create a new vote
-export async function createVote(params: CreateVoteParams) {
+export async function createVote(db: PrismaClient, params: CreateVoteParams) {
   const {
     workspaceId,
     channelId,
@@ -29,7 +30,7 @@ export async function createVote(params: CreateVoteParams) {
 
   const now = new Date();
 
-  const result = await prisma.vote.create({
+  const result = await db.vote.create({
     data: {
       workspaceId,
       channelId,
@@ -49,8 +50,8 @@ export async function createVote(params: CreateVoteParams) {
 }
 
 // Get a vote by ID
-export async function getVoteById(id: string) {
-  return await prisma.vote.findUnique({
+export async function getVoteById(db: PrismaClient, id: string) {
+  return await db.vote.findUnique({
     where: { id },
     include: {
       responses: true,
@@ -59,16 +60,16 @@ export async function getVoteById(id: string) {
 }
 
 // Get all votes for a workspace
-export async function getVotesForWorkspace(workspaceId: string) {
-  return await prisma.vote.findMany({
+export async function getVotesForWorkspace(db: PrismaClient, workspaceId: string) {
+  return await db.vote.findMany({
     where: { workspaceId },
     orderBy: { createdAt: "desc" },
   });
 }
 
 // Get all votes for a channel
-export async function getVotesForChannel(workspaceId: string, channelId: string) {
-  return await prisma.vote.findMany({
+export async function getVotesForChannel(db: PrismaClient, workspaceId: string, channelId: string) {
+  return await db.vote.findMany({
     where: {
       workspaceId,
       channelId,
@@ -79,6 +80,7 @@ export async function getVotesForChannel(workspaceId: string, channelId: string)
 
 // Record a user's vote
 export async function recordVoteResponse(
+  db: PrismaClient,
   voteId: string,
   userId: string,
   optionIndex: number,
@@ -86,7 +88,7 @@ export async function recordVoteResponse(
 ) {
   const now = new Date();
 
-  return await prisma.voteResponse.upsert({
+  return await db.voteResponse.upsert({
     where: {
       voteId_userId_optionIndex: {
         voteId,
@@ -110,8 +112,8 @@ export async function recordVoteResponse(
 }
 
 // Get vote results
-export async function getVoteResults(voteId: string) {
-  const vote = await prisma.vote.findUnique({
+export async function getVoteResults(db: PrismaClient, voteId: string) {
+  const vote = await db.vote.findUnique({
     where: { id: voteId },
     include: {
       responses: true,
@@ -147,8 +149,8 @@ export async function getVoteResults(voteId: string) {
 }
 
 // End a vote (set isEnded to true)
-export async function endVote(voteId: string) {
-  return await prisma.vote.update({
+export async function endVote(db: PrismaClient, voteId: string) {
+  return await db.vote.update({
     where: { id: voteId },
     data: {
       isEnded: true,

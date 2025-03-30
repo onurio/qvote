@@ -95,11 +95,12 @@ Object.defineProperties(prismaModule.prisma, {
 
 // Now import the functions after mocking
 import { createVote, endVote, getVoteById, getVoteResults, recordVoteResponse } from "./votes.ts";
+import { prisma } from "./prisma.ts";
 
 Deno.test({
   name: "createVote creates a new vote",
   fn: async () => {
-    const result = await createVote({
+    const result = await createVote(prisma, {
       workspaceId: "workspace-123",
       channelId: "channel-123",
       creatorId: "creator-123",
@@ -122,7 +123,7 @@ Deno.test({
 Deno.test({
   name: "getVoteById returns a vote with responses",
   fn: async () => {
-    const result = await getVoteById("vote-123");
+    const result = await getVoteById(prisma, "vote-123");
 
     // Verify result
     assertEquals(result?.id, "vote-123");
@@ -136,7 +137,7 @@ Deno.test({
 Deno.test({
   name: "endVote sets isEnded to true",
   fn: async () => {
-    const result = await endVote("vote-123");
+    const result = await endVote(prisma, "vote-123");
 
     // Verify result
     assertEquals(result.isEnded, true);
@@ -149,7 +150,7 @@ Deno.test({
 Deno.test({
   name: "getVoteResults calculates quadratic voting results correctly",
   fn: async () => {
-    const result = await getVoteResults("vote-123");
+    const result = await getVoteResults(prisma, "vote-123");
 
     // Verify vote details
     assertEquals(result.vote.id, "vote-123");
@@ -178,7 +179,7 @@ Deno.test({
 Deno.test({
   name: "recordVoteResponse stores user votes correctly",
   fn: async () => {
-    const result = await recordVoteResponse("vote-123", "user-1", 1, 36);
+    const result = await recordVoteResponse(prisma, "vote-123", "user-1", 1, 36);
 
     // Verify result
     assertEquals(result.voteId, "vote-123");

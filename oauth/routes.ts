@@ -1,6 +1,9 @@
 import { Router } from "jsr:@oak/oak/router";
 import { validateOAuthCallback } from "../middleware/oauth.ts";
 import logger from "@utils/logger.ts";
+import { prisma } from "@db/prisma.ts";
+// @ts-types="generated/index.d.ts"
+import { PrismaClient } from "generated/index.js";
 
 // Define types for auth service functions for testing
 export type GenerateAuthUrlType = () => string;
@@ -41,6 +44,7 @@ let authService: AuthService = {
 // Database function
 let saveWorkspaceFunc:
   | ((
+    db: PrismaClient,
     teamId: string,
     teamName: string,
     accessToken: string,
@@ -106,7 +110,7 @@ router.get("/oauth/callback", validateOAuthCallback, async (ctx) => {
 
     try {
       if (saveWorkspaceFunc) {
-        await saveWorkspaceFunc(teamId, teamName, accessToken, botUserId);
+        await saveWorkspaceFunc(prisma, teamId, teamName, accessToken, botUserId);
         logger.info(`Workspace saved: ${teamName} (${teamId})`);
       } else {
         logger.error("Save workspace function not available");

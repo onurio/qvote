@@ -1,7 +1,9 @@
-import { prisma } from "./prisma.ts";
+// @ts-types="generated/index.d.ts"
+import { PrismaClient } from "generated/index.js";
 
 // Save a workspace's OAuth token info to the database
 export async function saveWorkspace(
+  db: PrismaClient,
   teamId: string,
   teamName: string,
   accessToken: string,
@@ -9,7 +11,7 @@ export async function saveWorkspace(
 ) {
   const now = new Date();
 
-  const result = await prisma.workspace.upsert({
+  const result = await db.workspace.upsert({
     where: { teamId },
     update: {
       teamName,
@@ -31,25 +33,26 @@ export async function saveWorkspace(
 }
 
 // Get a workspace by team ID
-export async function getWorkspaceByTeamId(teamId: string) {
-  return await prisma.workspace.findUnique({
+export async function getWorkspaceByTeamId(db: PrismaClient, teamId: string) {
+  return await db.workspace.findUnique({
     where: { teamId },
   });
 }
 
 // Get all workspaces
-export async function getAllWorkspaces() {
-  return await prisma.workspace.findMany({
+export async function getAllWorkspaces(db: PrismaClient) {
+  return await db.workspace.findMany({
     orderBy: { createdAt: "desc" },
   });
 }
 
 // Delete a workspace by team ID
 export async function deleteWorkspaceByTeamId(
+  db: PrismaClient,
   teamId: string,
 ): Promise<boolean> {
   try {
-    await prisma.workspace.delete({
+    await db.workspace.delete({
       where: { teamId },
     });
     return true;

@@ -4,6 +4,7 @@ import { InteractionResponse, SlackInteraction } from "../types.ts";
 import { getWorkspaceToken } from "../workspace-utils.ts";
 import logger from "@utils/logger.ts";
 import { createErrorResponse, updateOriginalMessageAfterVoteEnd } from "../vote-utils.ts";
+import { prisma } from "@db/prisma.ts";
 
 export async function handleEndVote(
   action: NonNullable<SlackInteraction["actions"]>[number],
@@ -21,7 +22,7 @@ export async function handleEndVote(
 
   try {
     // Get the vote from the database
-    const vote = await getVoteById(voteId);
+    const vote = await getVoteById(prisma, voteId);
 
     if (!vote) {
       return createErrorResponse("Vote not found.", "Not Found");
@@ -36,13 +37,13 @@ export async function handleEndVote(
     }
 
     // End the vote in the database
-    await endVote(voteId);
+    await endVote(prisma, voteId);
 
     // Get results to show after ending vote
-    const results = await getVoteResults(voteId);
+    const results = await getVoteResults(prisma, voteId);
 
     // Get workspace token to update the original message
-    const workspaceToken = await getWorkspaceToken(workspaceId);
+    const workspaceToken = await getWorkspaceToken(prisma, workspaceId);
     if (!workspaceToken) {
       return createErrorResponse(
         "Workspace not found or authentication error.",

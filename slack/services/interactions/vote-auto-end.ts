@@ -2,6 +2,7 @@ import { endVote, getVoteById } from "@db/votes.ts";
 import { getWorkspaceToken } from "./workspace-utils.ts";
 import logger from "@utils/logger.ts";
 import { haveAllVotersVoted, updateVoteMessage } from "./vote-utils.ts";
+import { prisma } from "@db/prisma.ts";
 
 /**
  * Checks if all allowed voters have voted and ends the vote if they have
@@ -14,7 +15,7 @@ export async function checkAndAutoEndVote(
 ): Promise<void> {
   try {
     // Get latest vote data with all responses
-    const vote = await getVoteById(voteId);
+    const vote = await getVoteById(prisma, voteId);
 
     if (!vote || vote.isEnded) {
       // Vote not found or already ended
@@ -31,13 +32,13 @@ export async function checkAndAutoEndVote(
 
     if (haveAllVotersVoted(vote, allowedVoters, userId)) {
       // End the vote automatically
-      await endVote(vote.id);
+      await endVote(prisma, vote.id);
       logger.info("Vote ended automatically because all participants have voted", {
         voteId: vote.id,
       });
 
       // Get workspace token for message updates
-      const workspaceToken = await getWorkspaceToken(vote.workspaceId);
+      const workspaceToken = await getWorkspaceToken(prisma, vote.workspaceId);
       if (!workspaceToken) {
         logger.warn("Could not get workspace token for vote message update", {
           voteId: vote.id,

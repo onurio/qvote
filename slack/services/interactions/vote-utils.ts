@@ -4,6 +4,7 @@ import { InteractionResponse } from "./types.ts";
 import { createErrorMessageBlocks } from "../blocks.ts";
 import logger from "@utils/logger.ts";
 import { Vote } from "generated/index.d.ts";
+import { prisma } from "@db/prisma.ts";
 
 // Define VoteResult type to make it shareable
 export interface VoteResult {
@@ -183,7 +184,7 @@ export async function updateVoteMessage(
 ): Promise<void> {
   try {
     // Get updated vote with current state
-    const updatedVote = await getVoteById(vote.id);
+    const updatedVote = await getVoteById(prisma, vote.id);
     if (!updatedVote) {
       return;
     }

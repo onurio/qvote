@@ -3,6 +3,7 @@ import { InteractionResponse, SlackInteraction } from "./types.ts";
 import { createVotingModalView } from "./templates.ts";
 import { getWorkspaceToken } from "./workspace-utils.ts";
 import logger from "@utils/logger.ts";
+import { prisma } from "@db/prisma.ts";
 
 // Handle opening the vote modal
 export async function handleOpenVoteModal(
@@ -25,7 +26,7 @@ export async function handleOpenVoteModal(
 
   try {
     // Get the vote from the database
-    const vote = await getVoteById(voteId);
+    const vote = await getVoteById(prisma, voteId);
 
     if (!vote) {
       return {
@@ -50,7 +51,7 @@ export async function handleOpenVoteModal(
     }
 
     // Get the workspace to get the access token
-    const workspaceToken = await getWorkspaceToken(workspaceId);
+    const workspaceToken = await getWorkspaceToken(prisma, workspaceId);
     if (!workspaceToken) {
       return {
         status: 200,

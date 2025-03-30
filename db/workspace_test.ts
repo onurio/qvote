@@ -44,6 +44,7 @@ Deno.test("saveWorkspace creates a new workspace", async () => {
 
   // Create a new workspace
   const result = await saveWorkspace(
+    prisma,
     testWorkspace.teamId,
     testWorkspace.teamName,
     testWorkspace.accessToken,
@@ -76,6 +77,7 @@ Deno.test("saveWorkspace updates an existing workspace", async () => {
 
   // First create a workspace
   await saveWorkspace(
+    prisma,
     testWorkspace.teamId,
     testWorkspace.teamName,
     testWorkspace.accessToken,
@@ -90,6 +92,7 @@ Deno.test("saveWorkspace updates an existing workspace", async () => {
   };
 
   const result = await saveWorkspace(
+    prisma,
     updatedWorkspace.teamId,
     updatedWorkspace.teamName,
     updatedWorkspace.accessToken,
@@ -118,6 +121,7 @@ Deno.test("getWorkspaceByTeamId retrieves a workspace", async () => {
 
   // Create a workspace first
   await saveWorkspace(
+    prisma,
     testWorkspace.teamId,
     testWorkspace.teamName,
     testWorkspace.accessToken,
@@ -125,7 +129,7 @@ Deno.test("getWorkspaceByTeamId retrieves a workspace", async () => {
   );
 
   // Retrieve it
-  const result = await getWorkspaceByTeamId(testWorkspace.teamId);
+  const result = await getWorkspaceByTeamId(prisma, testWorkspace.teamId);
 
   // Verify the retrieved workspace matches
   assertEquals(result?.teamId, testWorkspace.teamId);
@@ -146,7 +150,7 @@ Deno.test("getWorkspaceByTeamId returns null for non-existent workspace", async 
     return;
   }
 
-  const result = await getWorkspaceByTeamId("non-existent-team");
+  const result = await getWorkspaceByTeamId(prisma, "non-existent-team");
   assertEquals(result, null);
 });
 
@@ -170,6 +174,7 @@ Deno.test("getAllWorkspaces retrieves all workspaces", async () => {
   };
 
   await saveWorkspace(
+    prisma,
     workspace1.teamId,
     workspace1.teamName,
     workspace1.accessToken,
@@ -177,6 +182,7 @@ Deno.test("getAllWorkspaces retrieves all workspaces", async () => {
   );
 
   await saveWorkspace(
+    prisma,
     workspace2.teamId,
     workspace2.teamName,
     workspace2.accessToken,
@@ -184,7 +190,7 @@ Deno.test("getAllWorkspaces retrieves all workspaces", async () => {
   );
 
   // Get all workspaces
-  const results = await getAllWorkspaces();
+  const results = await getAllWorkspaces(prisma);
 
   // Verify we got both workspaces
   assertEquals(results.length >= 2, true);
@@ -219,6 +225,7 @@ Deno.test("deleteWorkspaceByTeamId deletes a workspace", async () => {
 
   // Create a workspace first
   await saveWorkspace(
+    prisma,
     testWorkspace.teamId,
     testWorkspace.teamName,
     testWorkspace.accessToken,
@@ -226,11 +233,11 @@ Deno.test("deleteWorkspaceByTeamId deletes a workspace", async () => {
   );
 
   // Delete it
-  const deleteResult = await deleteWorkspaceByTeamId(testWorkspace.teamId);
+  const deleteResult = await deleteWorkspaceByTeamId(prisma, testWorkspace.teamId);
   assertEquals(deleteResult, true);
 
   // Verify it's gone
-  const result = await getWorkspaceByTeamId(testWorkspace.teamId);
+  const result = await getWorkspaceByTeamId(prisma, testWorkspace.teamId);
   assertEquals(result, null);
 });
 
@@ -242,6 +249,6 @@ Deno.test("deleteWorkspaceByTeamId handles non-existent workspaces", async () =>
     return;
   }
 
-  const result = await deleteWorkspaceByTeamId("non-existent-team");
+  const result = await deleteWorkspaceByTeamId(prisma, "non-existent-team");
   assertEquals(result, false);
 });

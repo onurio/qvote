@@ -4,6 +4,7 @@ import { routeSlackInteraction, SlackInteraction } from "./services/interactions
 import { validateSlackWorkspace } from "../middleware/slack.ts";
 import { getWorkspaceByTeamId } from "../db/workspace.ts";
 import logger from "@utils/logger.ts";
+import { prisma } from "@db/prisma.ts";
 
 const router = new Router();
 
@@ -44,7 +45,7 @@ router.post("/slack/interactions", async (ctx) => {
     }
 
     // Get the workspace from the database
-    const workspace = await getWorkspaceByTeamId(payload.team.id);
+    const workspace = await getWorkspaceByTeamId(prisma, payload.team.id);
 
     if (!workspace) {
       ctx.response.status = 200;
