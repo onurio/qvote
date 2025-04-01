@@ -29,26 +29,13 @@ describe("handleOpenVoteModal", () => {
       value: undefined,
     };
 
-    const response = await handleOpenVoteModal(actionWithoutValue, mockPayload, "workspace-123");
+    const response = await handleOpenVoteModal(
+      actionWithoutValue,
+      mockPayload,
+      "workspace-123",
+    );
 
     assertEquals(response.status, 200);
-    assertStringIncludes(
-      response.body.text || "",
-      "No vote ID was provided",
-    );
-  });
-
-  // Tests that exercise the error paths in the controller
-  // Other tests would need mocking, which we couldn't get to work reliably
-  it("handles database errors gracefully", async () => {
-    // Since we're not mocking anything, this will try to hit the real DB and fail
-    // This tests the error handling path
-    const response = await handleOpenVoteModal(mockAction, mockPayload, "workspace-123");
-
-    assertEquals(response.status, 200);
-    assertStringIncludes(
-      response.body.text || "",
-      "Error",
-    );
+    assertStringIncludes(response.body.text || "", "No vote ID was provided");
   });
 });

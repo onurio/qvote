@@ -55,7 +55,8 @@ jobs:
         run: deno task check
 
       - name: Run tests
-        run: deno task test
+        run: |
+          DB_HOST=localhost DB_PORT=5432 DB_USER=test DB_PASSWORD=test DB_NAME=test DATABASE_URL=postgresql://test:test@localhost:5432/test deno test --allow-read --allow-env --allow-net --allow-ffi --allow-run --trace-leaks tests/setup.ts "**/*_test.ts"
         env:
           DB_HOST: localhost
           DB_PORT: 5432

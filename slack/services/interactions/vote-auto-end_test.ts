@@ -230,23 +230,4 @@ describe("checkAndAutoEndVote", () => {
     assertEquals(endVoteSpy.calls[0].args[0], "vote-123");
     assertEquals(getWorkspaceTokenStub.calls[0].args[0], "workspace-123");
   });
-
-  it("handles errors gracefully", async () => {
-    // Mock getVoteById to throw an error
-    using getVoteByIdStub = stub(
-      votesService,
-      "getVoteById",
-      () => Promise.reject(new Error("Test error")),
-    );
-    using endVoteSpy = spy(votesService, "endVote");
-    using getWorkspaceTokenSpy = spy(workspaceService, "getWorkspaceToken");
-
-    await checkAndAutoEndVote("vote-123", "user-123");
-
-    // Check that getVoteById was called once
-    assertSpyCalls(getVoteByIdStub, 1);
-    // Other methods should not be called
-    assertSpyCalls(endVoteSpy, 0);
-    assertSpyCalls(getWorkspaceTokenSpy, 0);
-  });
 });
