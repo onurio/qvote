@@ -1,9 +1,7 @@
 import { Router } from "jsr:@oak/oak/router";
 import { validateOAuthCallback } from "../middleware/oauth.ts";
 import logger from "@utils/logger.ts";
-import { prisma } from "@db/prisma.ts";
-// @ts-types="generated/index.d.ts"
-import { PrismaClient } from "generated/index.js";
+import { workspaceService } from "@db/prisma.ts";
 
 // Define types for auth service functions for testing
 export type GenerateAuthUrlType = () => string;
@@ -41,33 +39,34 @@ let authService: AuthService = {
   authService.getSuccessHtml = auth.getSuccessHtml;
 })();
 
-// Database function
-let saveWorkspaceFunc:
-  | ((
-    db: PrismaClient,
-    teamId: string,
-    teamName: string,
-    accessToken: string,
-    botUserId: string,
-  ) => Promise<unknown>)
-  | null = null;
+// For testing - allows overriding the saveWorkspace function
+export type SaveWorkspaceFuncType = (
+  teamId: string,
+  teamName: string,
+  accessToken: string,
+  botUserId: string,
+) => Promise<unknown>;
 
-// Load the database function
-(async () => {
-  try {
-    const { saveWorkspace } = await import("@db/workspace.ts");
-    saveWorkspaceFunc = saveWorkspace;
-  } catch (err) {
-    console.error("Error loading saveWorkspace:", err);
-  }
-})();
+let saveWorkspaceFunc: SaveWorkspaceFuncType = async (
+  teamId: string,
+  teamName: string,
+  accessToken: string,
+  botUserId: string,
+) => {
+  return await workspaceService.saveWorkspace(
+    teamId,
+    teamName,
+    accessToken,
+    botUserId,
+  );
+};
 
 // Expose functions to override services for testing
 export function setAuthService(services: AuthService) {
   authService = services;
 }
 
-export function setSaveWorkspaceFunc(func: typeof saveWorkspaceFunc) {
+export function setSaveWorkspaceFunc(func: SaveWorkspaceFuncType) {
   saveWorkspaceFunc = func;
 }
 
@@ -82,8 +81,6 @@ router.get("/oauth/authorize", (ctx) => {
   const authUrl = authService.generateAuthUrl();
   ctx.response.redirect(authUrl);
 });
-
-// Already imported at the top
 
 // Handle the OAuth callback from Slack
 router.get("/oauth/callback", validateOAuthCallback, async (ctx) => {
@@ -105,18 +102,14 @@ router.get("/oauth/callback", validateOAuthCallback, async (ctx) => {
       return;
     }
 
-    // Save workspace data to database
+    // Save workspace data to database using the service
     const { accessToken, teamId, teamName, botUserId } = tokenResult.data!;
 
     try {
-      if (saveWorkspaceFunc) {
-        await saveWorkspaceFunc(prisma, teamId, teamName, accessToken, botUserId);
-        logger.info(`Workspace saved: ${teamName} (${teamId})`);
-      } else {
-        logger.error("Save workspace function not available");
-      }
-    } catch (_err) {
-      console.log("Test environment detected, skipping database save");
+      await saveWorkspaceFunc(teamId, teamName, accessToken, botUserId);
+      logger.info(`Workspace saved: ${teamName} (${teamId})`);
+    } catch (err) {
+      console.log("Error saving workspace or test environment detected:", err);
     }
 
     // Return success page

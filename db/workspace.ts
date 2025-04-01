@@ -1,63 +1,67 @@
 // @ts-types="generated/index.d.ts"
 import { PrismaClient } from "generated/index.js";
 
-// Save a workspace's OAuth token info to the database
-export async function saveWorkspace(
-  db: PrismaClient,
-  teamId: string,
-  teamName: string,
-  accessToken: string,
-  botUserId: string,
-) {
-  const now = new Date();
+export class WorkspaceService {
+  private db: PrismaClient;
 
-  const result = await db.workspace.upsert({
-    where: { teamId },
-    update: {
-      teamName,
-      accessToken,
-      botUserId,
-      updatedAt: now,
-    },
-    create: {
-      teamId,
-      teamName,
-      accessToken,
-      botUserId,
-      createdAt: now,
-      updatedAt: now,
-    },
-  });
+  constructor(db: PrismaClient) {
+    this.db = db;
+  }
 
-  return result;
-}
+  // Save a workspace's OAuth token info to the database
+  async saveWorkspace(
+    teamId: string,
+    teamName: string,
+    accessToken: string,
+    botUserId: string,
+  ) {
+    const now = new Date();
 
-// Get a workspace by team ID
-export async function getWorkspaceByTeamId(db: PrismaClient, teamId: string) {
-  return await db.workspace.findUnique({
-    where: { teamId },
-  });
-}
+    const result = await this.db.workspace.upsert({
+      where: { teamId },
+      update: {
+        teamName,
+        accessToken,
+        botUserId,
+        updatedAt: now,
+      },
+      create: {
+        teamId,
+        teamName,
+        accessToken,
+        botUserId,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
 
-// Get all workspaces
-export async function getAllWorkspaces(db: PrismaClient) {
-  return await db.workspace.findMany({
-    orderBy: { createdAt: "desc" },
-  });
-}
+    return result;
+  }
 
-// Delete a workspace by team ID
-export async function deleteWorkspaceByTeamId(
-  db: PrismaClient,
-  teamId: string,
-): Promise<boolean> {
-  try {
-    await db.workspace.delete({
+  // Get a workspace by team ID
+  async getWorkspaceByTeamId(teamId: string) {
+    return await this.db.workspace.findUnique({
       where: { teamId },
     });
-    return true;
-  } catch (error) {
-    console.error("Error deleting workspace:", error);
-    return false;
+  }
+
+  // Get all workspaces
+  async getAllWorkspaces() {
+    return await this.db.workspace.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  // Delete a workspace by team ID
+  async deleteWorkspaceByTeamId(teamId: string): Promise<boolean> {
+    try {
+      await this.db.workspace.delete({
+        where: { teamId },
+      });
+      return true;
+    } catch (error) {
+      console.error("Error deleting workspace:", error);
+      return false;
+    }
   }
 }

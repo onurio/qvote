@@ -1,9 +1,8 @@
-import { getVoteById } from "@db/votes.ts";
 import { InteractionResponse, SlackInteraction } from "./types.ts";
 import { createVotingModalView } from "./templates.ts";
 import { getWorkspaceToken } from "./workspace-utils.ts";
 import logger from "@utils/logger.ts";
-import { prisma } from "@db/prisma.ts";
+import { prisma, votesService } from "@db/prisma.ts";
 
 // Handle opening the vote modal
 export async function handleOpenVoteModal(
@@ -26,7 +25,7 @@ export async function handleOpenVoteModal(
 
   try {
     // Get the vote from the database
-    const vote = await getVoteById(prisma, voteId);
+    const vote = await votesService.getVoteById(voteId);
 
     if (!vote) {
       return {
@@ -64,8 +63,13 @@ export async function handleOpenVoteModal(
 
     // Create the voting modal view using the template
     // Get any previous votes by this user
-    const userResponses = vote.responses.filter((response) => response.userId === payload.user.id);
-    const userCredits = userResponses.reduce((sum, response) => sum + response.credits, 0);
+    const userResponses = vote.responses.filter((response: { userId: string }) =>
+      response.userId === payload.user.id
+    );
+    const userCredits = userResponses.reduce(
+      (sum: number, response: { credits: number }) => sum + response.credits,
+      0,
+    );
 
     // Cast the options to string[] as it comes from the database as Json
     const view = createVotingModalView({

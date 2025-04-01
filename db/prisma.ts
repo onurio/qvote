@@ -4,11 +4,17 @@ import { PrismaClient } from "generated/index.js";
 
 import { load } from "@std/dotenv";
 import logger from "@utils/logger.ts";
+import { VotesService } from "./votes.ts";
+import { WorkspaceService } from "./workspace.ts";
 
 await load({ export: true });
 
 // Create Prisma client instance with standard configuration
 export const prisma = new PrismaClient();
+
+// Create service instances with the Prisma client
+export const votesService = new VotesService(prisma);
+export const workspaceService = new WorkspaceService(prisma);
 
 /**
  * Connects to the database with retry logic for Docker environments

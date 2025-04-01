@@ -1,9 +1,8 @@
-import { getVoteById, recordVoteResponse } from "@db/votes.ts";
 import { createErrorMessageBlocks } from "../blocks.ts";
 import { InteractionResponse, SlackInteraction } from "./types.ts";
 import logger from "@utils/logger.ts";
 import { checkAndAutoEndVote } from "./vote-auto-end.ts";
-import { prisma } from "@db/prisma.ts";
+import { votesService } from "@db/prisma.ts";
 
 // Handle vote submission from an existing vote
 export async function handleVoteSubmission(
@@ -30,7 +29,7 @@ export async function handleVoteSubmission(
 
   try {
     // Get the vote from database
-    const vote = await getVoteById(prisma, metadata.voteId);
+    const vote = await votesService.getVoteById(metadata.voteId);
 
     if (!vote) {
       return {
@@ -137,7 +136,7 @@ export async function handleVoteSubmission(
         if (credits >= 0) {
           // Allow zero credits to clear previous votes
           // Record this option's votes
-          await recordVoteResponse(prisma, vote.id, userId, i, credits);
+          await votesService.recordVoteResponse(vote.id, userId, i, credits);
         }
       }
     }

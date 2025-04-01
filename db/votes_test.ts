@@ -1,4 +1,7 @@
 import { assertEquals } from "@std/assert";
+import { VotesService } from "./votes.ts";
+// @ts-types="generated/index.d.ts"
+import { PrismaClient } from "generated/index.js";
 
 // Mock vote data
 const mockVoteData = {
@@ -49,16 +52,13 @@ const mockVoteResponses = [
   },
 ];
 
-// Import the prisma module for mocking
-import * as prismaModule from "./prisma.ts";
-
 // Create a typed mock for the Prisma client
 // This is a type-safe approach to mocking the Prisma client
 const mockPrismaClient = {
   vote: {
     create: (data: Record<string, unknown>) => ({
       ...mockVoteData,
-      ...(data.data as Record<string, unknown> || {}),
+      ...((data.data as Record<string, unknown>) || {}),
     }),
     findUnique: () => ({
       ...mockVoteData,
@@ -66,7 +66,7 @@ const mockPrismaClient = {
     }),
     update: (data: Record<string, unknown>) => ({
       ...mockVoteData,
-      ...(data.data as Record<string, unknown> || {}),
+      ...((data.data as Record<string, unknown>) || {}),
       isEnded: true,
     }),
     findMany: () => [mockVoteData],
@@ -74,33 +74,20 @@ const mockPrismaClient = {
   voteResponse: {
     upsert: (data: Record<string, unknown>) => ({
       id: `response-${data.optionIndex}`,
-      ...(data.create as Record<string, unknown> || {}),
+      ...((data.create as Record<string, unknown>) || {}),
     }),
   },
 };
 
-// Use a type assertion to override the prisma object for testing
-// This is necessary because the prisma properties are read-only
-// @ts-ignore - Ignoring the readonly property error for testing
-Object.defineProperties(prismaModule.prisma, {
-  vote: {
-    value: mockPrismaClient.vote,
-    configurable: true,
-  },
-  voteResponse: {
-    value: mockPrismaClient.voteResponse,
-    configurable: true,
-  },
-});
-
-// Now import the functions after mocking
-import { createVote, endVote, getVoteById, getVoteResults, recordVoteResponse } from "./votes.ts";
-import { prisma } from "./prisma.ts";
+// Create an instance of the VotesService with the mock client
+const votesService = new VotesService(
+  mockPrismaClient as unknown as PrismaClient,
+);
 
 Deno.test({
   name: "createVote creates a new vote",
   fn: async () => {
-    const result = await createVote(prisma, {
+    const result = await votesService.createVote({
       workspaceId: "workspace-123",
       channelId: "channel-123",
       creatorId: "creator-123",
@@ -123,7 +110,7 @@ Deno.test({
 Deno.test({
   name: "getVoteById returns a vote with responses",
   fn: async () => {
-    const result = await getVoteById(prisma, "vote-123");
+    const result = await votesService.getVoteById("vote-123");
 
     // Verify result
     assertEquals(result?.id, "vote-123");
@@ -137,7 +124,7 @@ Deno.test({
 Deno.test({
   name: "endVote sets isEnded to true",
   fn: async () => {
-    const result = await endVote(prisma, "vote-123");
+    const result = await votesService.endVote("vote-123");
 
     // Verify result
     assertEquals(result.isEnded, true);
@@ -150,7 +137,7 @@ Deno.test({
 Deno.test({
   name: "getVoteResults calculates quadratic voting results correctly",
   fn: async () => {
-    const result = await getVoteResults(prisma, "vote-123");
+    const result = await votesService.getVoteResults("vote-123");
 
     // Verify vote details
     assertEquals(result.vote.id, "vote-123");
@@ -162,8 +149,12 @@ Deno.test({
     // Total credits should be 25 and 25 for the two options with votes
     // The result array is sorted by totalCredits, so we'll check both options
     // We have to be less specific about the order since it can vary
-    const hasOption1 = result.results.some((r) => r.option === "Option 1" && r.totalCredits === 25);
-    const hasOption2 = result.results.some((r) => r.option === "Option 2" && r.totalCredits === 25);
+    const hasOption1 = result.results.some(
+      (r) => r.option === "Option 1" && r.totalCredits === 25,
+    );
+    const hasOption2 = result.results.some(
+      (r) => r.option === "Option 2" && r.totalCredits === 25,
+    );
     assertEquals(hasOption1, true, "Should have Option 1 with 25 credits");
     assertEquals(hasOption2, true, "Should have Option 2 with 25 credits");
 
@@ -179,7 +170,12 @@ Deno.test({
 Deno.test({
   name: "recordVoteResponse stores user votes correctly",
   fn: async () => {
-    const result = await recordVoteResponse(prisma, "vote-123", "user-1", 1, 36);
+    const result = await votesService.recordVoteResponse(
+      "vote-123",
+      "user-1",
+      1,
+      36,
+    );
 
     // Verify result
     assertEquals(result.voteId, "vote-123");

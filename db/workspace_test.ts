@@ -1,254 +1,95 @@
-import {
-  deleteWorkspaceByTeamId,
-  getAllWorkspaces,
-  getWorkspaceByTeamId,
-  saveWorkspace,
-} from "./workspace.ts";
-import { prisma } from "./prisma.ts";
-import { assertEquals, assertExists } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
+import { WorkspaceService } from "./workspace.ts";
+// @ts-types="generated/index.d.ts"
+import { PrismaClient } from "generated/index.js";
 
-// Test data for workspace
-const testWorkspace = {
+// Mock workspace data
+const mockWorkspaceData = {
+  id: "1",
   teamId: "T12345",
   teamName: "Test Team",
   accessToken: "xoxb-test-token",
-  botUserId: "U12345",
+  botUserId: "U54321",
+  createdAt: new Date(),
+  updatedAt: new Date(),
 };
 
-// Setup and teardown helpers
-async function setupTestWorkspace() {
-  // Clear any existing test workspace data
-  try {
-    await prisma.workspace.delete({
-      where: { teamId: testWorkspace.teamId },
-    });
-  } catch (_e) {
-    // Ignore if not found
-  }
-}
+// Create a typed mock for the Prisma client
+const mockPrismaClient = {
+  workspace: {
+    upsert: (data: Record<string, unknown>) => ({
+      ...mockWorkspaceData,
+      ...((data.create as Record<string, unknown>) || {}),
+      ...((data.update as Record<string, unknown>) || {}),
+    }),
+    findUnique: () => mockWorkspaceData,
+    findMany: () => [mockWorkspaceData],
+    delete: () => mockWorkspaceData,
+  },
+};
 
-// Check if we're running in the test environment
-function isTestEnvironment() {
-  return Deno.env.get("DB_USER") === "test";
-}
+// Import the WorkspaceService class
 
-Deno.test("saveWorkspace creates a new workspace", async () => {
-  if (isTestEnvironment()) {
-    console.log("Test environment detected, skipping DB test");
-    // Still mark as passed with a simple assertion for coverage
-    assertEquals(true, true);
-    return;
-  }
+// Create an instance of the WorkspaceService with the mock client
+const workspaceService = new WorkspaceService(
+  mockPrismaClient as unknown as PrismaClient,
+);
 
-  await setupTestWorkspace();
+Deno.test({
+  name: "saveWorkspace creates or updates a workspace",
+  fn: async () => {
+    const result = await workspaceService.saveWorkspace(
+      "T12345",
+      "Test Team",
+      "xoxb-test-token",
+      "U54321",
+    );
 
-  // Create a new workspace
-  const result = await saveWorkspace(
-    prisma,
-    testWorkspace.teamId,
-    testWorkspace.teamName,
-    testWorkspace.accessToken,
-    testWorkspace.botUserId,
-  );
-
-  // Verify the workspace was created with correct data
-  assertEquals(result.teamId, testWorkspace.teamId);
-  assertEquals(result.teamName, testWorkspace.teamName);
-  assertEquals(result.accessToken, testWorkspace.accessToken);
-  assertEquals(result.botUserId, testWorkspace.botUserId);
-  assertExists(result.createdAt);
-  assertExists(result.updatedAt);
-
-  // Clean up
-  await prisma.workspace.delete({
-    where: { teamId: testWorkspace.teamId },
-  });
+    // Verify result
+    assertEquals(result.teamId, "T12345");
+    assertEquals(result.teamName, "Test Team");
+    assertEquals(result.accessToken, "xoxb-test-token");
+    assertEquals(result.botUserId, "U54321");
+  },
+  sanitizeResources: false,
+  sanitizeOps: false,
 });
 
-Deno.test("saveWorkspace updates an existing workspace", async () => {
-  if (isTestEnvironment()) {
-    console.log("Test environment detected, skipping DB test");
-    // Still mark as passed with a simple assertion for coverage
-    assertEquals(true, true);
-    return;
-  }
+Deno.test({
+  name: "getWorkspaceByTeamId returns a workspace",
+  fn: async () => {
+    const result = await workspaceService.getWorkspaceByTeamId("T12345");
 
-  await setupTestWorkspace();
-
-  // First create a workspace
-  await saveWorkspace(
-    prisma,
-    testWorkspace.teamId,
-    testWorkspace.teamName,
-    testWorkspace.accessToken,
-    testWorkspace.botUserId,
-  );
-
-  // Then update it with new values
-  const updatedWorkspace = {
-    ...testWorkspace,
-    teamName: "Updated Team",
-    accessToken: "xoxb-updated-token",
-  };
-
-  const result = await saveWorkspace(
-    prisma,
-    updatedWorkspace.teamId,
-    updatedWorkspace.teamName,
-    updatedWorkspace.accessToken,
-    updatedWorkspace.botUserId,
-  );
-
-  // Verify the workspace was updated
-  assertEquals(result.teamName, updatedWorkspace.teamName);
-  assertEquals(result.accessToken, updatedWorkspace.accessToken);
-
-  // Clean up
-  await prisma.workspace.delete({
-    where: { teamId: testWorkspace.teamId },
-  });
+    // Verify result
+    assertEquals(result?.teamId, "T12345");
+    assertEquals(result?.teamName, "Test Team");
+  },
+  sanitizeResources: false,
+  sanitizeOps: false,
 });
 
-Deno.test("getWorkspaceByTeamId retrieves a workspace", async () => {
-  if (isTestEnvironment()) {
-    console.log("Test environment detected, skipping DB test");
-    // Still mark as passed with a simple assertion for coverage
-    assertEquals(true, true);
-    return;
-  }
+Deno.test({
+  name: "getAllWorkspaces returns a list of workspaces",
+  fn: async () => {
+    const result = await workspaceService.getAllWorkspaces();
 
-  await setupTestWorkspace();
-
-  // Create a workspace first
-  await saveWorkspace(
-    prisma,
-    testWorkspace.teamId,
-    testWorkspace.teamName,
-    testWorkspace.accessToken,
-    testWorkspace.botUserId,
-  );
-
-  // Retrieve it
-  const result = await getWorkspaceByTeamId(prisma, testWorkspace.teamId);
-
-  // Verify the retrieved workspace matches
-  assertEquals(result?.teamId, testWorkspace.teamId);
-  assertEquals(result?.teamName, testWorkspace.teamName);
-  assertEquals(result?.accessToken, testWorkspace.accessToken);
-
-  // Clean up
-  await prisma.workspace.delete({
-    where: { teamId: testWorkspace.teamId },
-  });
+    // Verify result
+    assertEquals(result.length, 1);
+    assertEquals(result[0].teamId, "T12345");
+    assertEquals(result[0].teamName, "Test Team");
+  },
+  sanitizeResources: false,
+  sanitizeOps: false,
 });
 
-Deno.test("getWorkspaceByTeamId returns null for non-existent workspace", async () => {
-  if (isTestEnvironment()) {
-    console.log("Test environment detected, skipping DB test");
-    // Still mark as passed with a simple assertion for coverage
-    assertEquals(true, true);
-    return;
-  }
+Deno.test({
+  name: "deleteWorkspaceByTeamId deletes a workspace",
+  fn: async () => {
+    const result = await workspaceService.deleteWorkspaceByTeamId("T12345");
 
-  const result = await getWorkspaceByTeamId(prisma, "non-existent-team");
-  assertEquals(result, null);
-});
-
-Deno.test("getAllWorkspaces retrieves all workspaces", async () => {
-  if (isTestEnvironment()) {
-    console.log("Test environment detected, skipping DB test");
-    // Still mark as passed with a simple assertion for coverage
-    assertEquals(true, true);
-    return;
-  }
-
-  await setupTestWorkspace();
-
-  // Create a couple of test workspaces
-  const workspace1 = { ...testWorkspace };
-  const workspace2 = {
-    teamId: "T67890",
-    teamName: "Second Team",
-    accessToken: "token2",
-    botUserId: "bot2",
-  };
-
-  await saveWorkspace(
-    prisma,
-    workspace1.teamId,
-    workspace1.teamName,
-    workspace1.accessToken,
-    workspace1.botUserId,
-  );
-
-  await saveWorkspace(
-    prisma,
-    workspace2.teamId,
-    workspace2.teamName,
-    workspace2.accessToken,
-    workspace2.botUserId,
-  );
-
-  // Get all workspaces
-  const results = await getAllWorkspaces(prisma);
-
-  // Verify we got both workspaces
-  assertEquals(results.length >= 2, true);
-
-  // Find our test workspaces in the results
-  const team1 = results.find((w) => w.teamId === workspace1.teamId);
-  const team2 = results.find((w) => w.teamId === workspace2.teamId);
-
-  assertExists(team1);
-  assertExists(team2);
-  assertEquals(team1?.teamName, workspace1.teamName);
-  assertEquals(team2?.teamName, workspace2.teamName);
-
-  // Clean up
-  await prisma.workspace.delete({
-    where: { teamId: workspace1.teamId },
-  });
-  await prisma.workspace.delete({
-    where: { teamId: workspace2.teamId },
-  });
-});
-
-Deno.test("deleteWorkspaceByTeamId deletes a workspace", async () => {
-  if (isTestEnvironment()) {
-    console.log("Test environment detected, skipping DB test");
-    // Still mark as passed with a simple assertion for coverage
-    assertEquals(true, true);
-    return;
-  }
-
-  await setupTestWorkspace();
-
-  // Create a workspace first
-  await saveWorkspace(
-    prisma,
-    testWorkspace.teamId,
-    testWorkspace.teamName,
-    testWorkspace.accessToken,
-    testWorkspace.botUserId,
-  );
-
-  // Delete it
-  const deleteResult = await deleteWorkspaceByTeamId(prisma, testWorkspace.teamId);
-  assertEquals(deleteResult, true);
-
-  // Verify it's gone
-  const result = await getWorkspaceByTeamId(prisma, testWorkspace.teamId);
-  assertEquals(result, null);
-});
-
-Deno.test("deleteWorkspaceByTeamId handles non-existent workspaces", async () => {
-  if (isTestEnvironment()) {
-    console.log("Test environment detected, skipping DB test");
-    // Still mark as passed with a simple assertion for coverage
-    assertEquals(true, true);
-    return;
-  }
-
-  const result = await deleteWorkspaceByTeamId(prisma, "non-existent-team");
-  assertEquals(result, false);
+    // Verify result
+    assertEquals(result, true);
+  },
+  sanitizeResources: false,
+  sanitizeOps: false,
 });

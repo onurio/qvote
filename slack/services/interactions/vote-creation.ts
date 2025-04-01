@@ -1,10 +1,9 @@
-import { createVote } from "@db/votes.ts";
 import { createErrorMessageBlocks, createVoteBlocks } from "../blocks.ts";
 import { InteractionResponse, SlackInteraction } from "./types.ts";
 import { createVoteCreationModalView, createVoteSuccessModalView } from "./templates.ts";
 import { getWorkspaceToken } from "./workspace-utils.ts";
 import logger from "@utils/logger.ts";
-import { prisma } from "@db/prisma.ts";
+import { prisma, votesService } from "@db/prisma.ts";
 
 // Handle the vote creation submission
 export async function handleCreateVoteSubmission(
@@ -132,7 +131,7 @@ export async function handleCreateVoteSubmission(
       // endTime removed
     });
 
-    const vote = await createVote(prisma, {
+    const vote = await votesService.createVote({
       workspaceId,
       channelId: metadata.channelId,
       creatorId: payload.user.id,

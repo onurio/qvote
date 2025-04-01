@@ -2,9 +2,8 @@ import { Router } from "jsr:@oak/oak/router";
 import { routeSlackCommand } from "./services/command.ts";
 import { routeSlackInteraction, SlackInteraction } from "./services/interactions.ts";
 import { validateSlackWorkspace } from "../middleware/slack.ts";
-import { getWorkspaceByTeamId } from "../db/workspace.ts";
 import logger from "@utils/logger.ts";
-import { prisma } from "@db/prisma.ts";
+import { workspaceService } from "@db/prisma.ts";
 
 const router = new Router();
 
@@ -45,7 +44,9 @@ router.post("/slack/interactions", async (ctx) => {
     }
 
     // Get the workspace from the database
-    const workspace = await getWorkspaceByTeamId(prisma, payload.team.id);
+    const workspace = await workspaceService.getWorkspaceByTeamId(
+      payload.team.id,
+    );
 
     if (!workspace) {
       ctx.response.status = 200;

@@ -1,9 +1,8 @@
-import { getVoteResults } from "@db/votes.ts";
 import { createResultsBlocks } from "@slack/services/blocks.ts";
 import { InteractionResponse, SlackInteraction } from "../types.ts";
 import logger from "@utils/logger.ts";
 import { createErrorResponse, sendResultsViaResponseUrl } from "../vote-utils.ts";
-import { prisma } from "@db/prisma.ts";
+import { votesService } from "@db/prisma.ts";
 
 export async function handleShowVoteResults(
   action: NonNullable<SlackInteraction["actions"]>[number],
@@ -14,7 +13,10 @@ export async function handleShowVoteResults(
 
   if (!action.value) {
     logger.error("No action value provided for vote results");
-    return createErrorResponse("No vote ID was provided.", "Missing Information");
+    return createErrorResponse(
+      "No vote ID was provided.",
+      "Missing Information",
+    );
   }
 
   // Extract vote ID from the action value (format: "results_<id>")
@@ -24,7 +26,7 @@ export async function handleShowVoteResults(
   try {
     // Get the vote results from the database
     logger.debug("Fetching vote results for ID:", voteId);
-    const results = await getVoteResults(prisma, voteId);
+    const results = await votesService.getVoteResults(voteId);
 
     if (!results) {
       logger.error("No results found for vote ID:", voteId);
@@ -35,7 +37,12 @@ export async function handleShowVoteResults(
     const { vote, results: voteResults } = results;
 
     if (payload.response_url) {
-      await sendResultsViaResponseUrl(vote, voteResults, payload.response_url, createResultsBlocks);
+      await sendResultsViaResponseUrl(
+        vote,
+        voteResults,
+        payload.response_url,
+        createResultsBlocks,
+      );
     } else {
       logger.warn("No response_url found in payload");
     }
