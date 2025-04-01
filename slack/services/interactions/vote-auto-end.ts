@@ -9,7 +9,7 @@ import { votesService, workspaceService } from "@db/prisma.ts";
  */
 export async function checkAndAutoEndVote(
   voteId: string,
-  userId: string,
+  _userId: string,
 ): Promise<void> {
   try {
     // Get latest vote data with all responses
@@ -28,7 +28,7 @@ export async function checkAndAutoEndVote(
       return;
     }
 
-    if (haveAllVotersVoted(vote, allowedVoters, userId)) {
+    if (haveAllVotersVoted(vote, allowedVoters)) {
       // End the vote automatically
       await votesService.endVote(vote.id);
       logger.info(

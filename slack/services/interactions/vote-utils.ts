@@ -17,7 +17,6 @@ export interface VoteResult {
 export function haveAllVotersVoted(
   vote: { responses: { userId: string; credits: number }[] },
   allowedVoters: string[],
-  currentUserId: string,
 ): boolean {
   // Get all unique user IDs that have voted
   const voterIds = new Set<string>();
@@ -28,9 +27,6 @@ export function haveAllVotersVoted(
       voterIds.add(response.userId);
     }
   });
-
-  // Add the current voter
-  voterIds.add(currentUserId);
 
   // Check if all allowed voters have now voted
   return allowedVoters.every((voterId) => voterIds.has(voterId));
