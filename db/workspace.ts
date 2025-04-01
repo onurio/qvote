@@ -1,5 +1,6 @@
 // @ts-types="generated/index.d.ts"
 import { PrismaClient } from "generated/index.js";
+import logger from "@utils/logger.ts";
 
 export class WorkspaceService {
   private db: PrismaClient;
@@ -62,6 +63,18 @@ export class WorkspaceService {
     } catch (error) {
       console.error("Error deleting workspace:", error);
       return false;
+    }
+  }
+
+  async getWorkspaceToken(workspaceId: string): Promise<string | null> {
+    try {
+      const workspace = await this.db.workspace.findUnique({
+        where: { id: workspaceId },
+      });
+      return workspace?.accessToken || null;
+    } catch (error) {
+      logger.error("Error getting workspace token", error);
+      return null;
     }
   }
 }

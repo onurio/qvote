@@ -1,8 +1,8 @@
 import { InteractionResponse, SlackInteraction } from "./types.ts";
 import { createVotingModalView } from "./templates.ts";
-import { getWorkspaceToken } from "./workspace-utils.ts";
+
 import logger from "@utils/logger.ts";
-import { prisma, votesService } from "@db/prisma.ts";
+import { votesService, workspaceService } from "@db/prisma.ts";
 
 // Handle opening the vote modal
 export async function handleOpenVoteModal(
@@ -50,7 +50,9 @@ export async function handleOpenVoteModal(
     }
 
     // Get the workspace to get the access token
-    const workspaceToken = await getWorkspaceToken(prisma, workspaceId);
+    const workspaceToken = await workspaceService.getWorkspaceToken(
+      workspaceId,
+    );
     if (!workspaceToken) {
       return {
         status: 200,
@@ -63,8 +65,8 @@ export async function handleOpenVoteModal(
 
     // Create the voting modal view using the template
     // Get any previous votes by this user
-    const userResponses = vote.responses.filter((response: { userId: string }) =>
-      response.userId === payload.user.id
+    const userResponses = vote.responses.filter(
+      (response: { userId: string }) => response.userId === payload.user.id,
     );
     const userCredits = userResponses.reduce(
       (sum: number, response: { credits: number }) => sum + response.credits,
@@ -83,13 +85,10 @@ export async function handleOpenVoteModal(
     });
 
     // For debugging
-    logger.debug(
-      "Modal payload",
-      {
-        trigger_id: payload.trigger_id,
-        view,
-      },
-    );
+    logger.debug("Modal payload", {
+      trigger_id: payload.trigger_id,
+      view,
+    });
 
     // Call the Slack API to open the modal
     const response = await fetch("https://slack.com/api/views.open", {
