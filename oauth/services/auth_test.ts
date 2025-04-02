@@ -1,4 +1,4 @@
-import { exchangeCodeForToken, generateAuthUrl, getSuccessHtml } from "./auth.ts";
+import { authService } from "./auth.ts";
 import { assertEquals, assertMatch, assertObjectMatch } from "jsr:@std/assert";
 import { stub } from "jsr:@std/testing/mock";
 
@@ -11,7 +11,7 @@ Deno.test("generateAuthUrl creates proper Slack OAuth URL", () => {
   });
 
   try {
-    const authUrl = generateAuthUrl();
+    const authUrl = authService.generateAuthUrl();
 
     // Check URL structure
     assertMatch(
@@ -49,7 +49,7 @@ Deno.test("generateAuthUrl handles missing environment variables", () => {
   const envStub = stub(Deno.env, "get", () => "");
 
   try {
-    const authUrl = generateAuthUrl();
+    const authUrl = authService.generateAuthUrl();
     const url = new URL(authUrl);
 
     assertEquals(url.searchParams.get("client_id"), "");
@@ -94,7 +94,7 @@ Deno.test(
       );
 
     try {
-      const result = await exchangeCodeForToken("test_code");
+      const result = await authService.exchangeCodeForToken("test_code");
 
       assertEquals(result.success, true);
       assertObjectMatch(result.data || {}, {
@@ -130,7 +130,7 @@ Deno.test("exchangeCodeForToken handles Slack API errors", async () => {
     );
 
   try {
-    const result = await exchangeCodeForToken("invalid_code");
+    const result = await authService.exchangeCodeForToken("invalid_code");
 
     assertEquals(result.success, false);
     assertEquals(result.error, "invalid_code");
@@ -151,7 +151,7 @@ Deno.test("exchangeCodeForToken handles network errors", async () => {
   };
 
   try {
-    const result = await exchangeCodeForToken("test_code");
+    const result = await authService.exchangeCodeForToken("test_code");
 
     assertEquals(result.success, false);
     assertEquals(result.error, "Server error during OAuth process");
@@ -162,7 +162,7 @@ Deno.test("exchangeCodeForToken handles network errors", async () => {
 });
 
 Deno.test("getSuccessHtml returns correct HTML", () => {
-  const html = getSuccessHtml();
+  const html = authService.getSuccessHtml();
 
   // Check for key elements in the HTML
   assertMatch(html, /<title>QVote Installation Successful<\/title>/);

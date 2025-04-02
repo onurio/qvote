@@ -1,50 +1,10 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { Application } from "jsr:@oak/oak";
-import router, {
-  AuthService,
-  ExchangeCodeForTokenType,
-  GenerateAuthUrlType,
-  GetSuccessHtmlType,
-  setAuthService,
-  setSaveWorkspaceFunc,
-} from "./routes.ts";
-
-// Create mocked auth services
-const generateAuthUrl: GenerateAuthUrlType = () =>
-  "https://slack.com/oauth/v2/authorize?client_id=test_client_id&scope=commands%20chat:write%20channels:read%20channels:history&redirect_uri=http://localhost:8080/oauth/callback&state=test-uuid-123";
-
-const exchangeCodeForToken: ExchangeCodeForTokenType = async (_code: string) => {
-  // Add a minimal delay to make the async function actually await something
-  await new Promise((resolve) => setTimeout(resolve, 0));
-
-  return {
-    success: true,
-    data: {
-      accessToken: "xoxb-test-token",
-      teamId: "T12345",
-      teamName: "Test Team",
-      botUserId: "U12345",
-    },
-  };
-};
-
-const getSuccessHtml: GetSuccessHtmlType = () => `
-  <!DOCTYPE html>
-  <html>
-    <head><title>Installation Successful</title></head>
-    <body>
-      <h1>QVote installed successfully!</h1>
-      <p>You can close this window and return to Slack.</p>
-    </body>
-  </html>
-`;
-
-// Create mock service object
-const mockServices: AuthService = {
-  generateAuthUrl,
-  exchangeCodeForToken,
-  getSuccessHtml,
-};
+import router from "./routes.ts";
+import { authService } from "./services/auth.ts";
+import { workspaceService } from "@db/prisma.ts";
+import { stub } from "jsr:@std/testing/mock";
+import { TokenExchangeResult } from "./services/auth.ts";
 
 // Create test app
 const createTestApp = () => {
@@ -54,32 +14,64 @@ const createTestApp = () => {
   return app;
 };
 
+// Test auth URL
+const TEST_AUTH_URL =
+  "https://slack.com/oauth/v2/authorize?client_id=test_client_id&scope=commands%20chat:write%20channels:read%20channels:history&redirect_uri=http://localhost:8080/oauth/callback&state=test-uuid-123";
+
+// Test token result
+const TEST_TOKEN_RESULT: TokenExchangeResult = {
+  success: true,
+  data: {
+    accessToken: "xoxb-test-token",
+    teamId: "T12345",
+    teamName: "Test Team",
+    botUserId: "U12345",
+  },
+};
+
+// Error token result
+const ERROR_TOKEN_RESULT: TokenExchangeResult = {
+  success: false,
+  error: "invalid_code",
+};
+
+// For tests we need to stub the following:
+// 1. generateAuthUrl - To prevent random UUID and return predictable URL
+// 2. exchangeCodeForToken - Because we can't really call Slack API
+
 Deno.test({
   name: "OAuth authorize route redirects to Slack",
   fn: async () => {
-    // Set mock services for this test
-    setAuthService(mockServices);
+    // Setup stub for generateAuthUrl
+    const generateAuthUrlStub = stub(
+      authService,
+      "generateAuthUrl",
+      () => TEST_AUTH_URL,
+    );
 
-    const app = createTestApp();
-    const resp = (await app.handle(
-      new Request("http://localhost:8080/oauth/authorize"),
-    )) as Response;
+    try {
+      const app = createTestApp();
+      const resp = (await app.handle(
+        new Request("http://localhost:8080/oauth/authorize"),
+      )) as Response;
 
-    assertEquals(resp.status, 302);
-    const location = resp.headers.get("Location");
-    assertStringIncludes(location || "", "https://slack.com/oauth/v2/authorize");
-    assertStringIncludes(location || "", "client_id=test_client_id");
-    assertStringIncludes(location || "", "state=test-uuid-123");
+      assertEquals(resp.status, 302);
+      const location = resp.headers.get("Location");
+      assertStringIncludes(
+        location || "",
+        "https://slack.com/oauth/v2/authorize",
+      );
+      assertStringIncludes(location || "", "client_id=test_client_id");
+      assertStringIncludes(location || "", "state=test-uuid-123");
+    } finally {
+      generateAuthUrlStub.restore();
+    }
   },
   sanitizeResources: false,
   sanitizeOps: false,
 });
 
 Deno.test("OAuth callback route handles missing code parameter", async () => {
-  // We don't need to mock validateCallbackParams anymore since it's now in middleware
-  // Just use the default mock services
-  setAuthService(mockServices);
-
   const app = createTestApp();
   const resp = (await app.handle(
     new Request("http://localhost:8080/oauth/callback?state=test-state"),
@@ -91,10 +83,6 @@ Deno.test("OAuth callback route handles missing code parameter", async () => {
 });
 
 Deno.test("OAuth callback route handles missing state parameter", async () => {
-  // We don't need to mock validateCallbackParams anymore since it's now in middleware
-  // Just use the default mock services
-  setAuthService(mockServices);
-
   const app = createTestApp();
   const resp = (await app.handle(
     new Request("http://localhost:8080/oauth/callback?code=test_code"),
@@ -108,68 +96,65 @@ Deno.test("OAuth callback route handles missing state parameter", async () => {
 Deno.test({
   name: "OAuth callback route handles successful authorization",
   fn: async () => {
-    // Set default mock services with successful response
-    setAuthService(mockServices);
+    // We'll need to stub the token exchange since we can't call Slack API
+    const exchangeCodeStub = stub(
+      authService,
+      "exchangeCodeForToken",
+      () => Promise.resolve(TEST_TOKEN_RESULT),
+    );
 
-    // Mock save workspace to throw test error
-    setSaveWorkspaceFunc(async (_teamId, _teamName, _accessToken, _botUserId) => {
-      // Add a minimal delay to make the async function actually await something
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      throw new Error("Test environment");
-    });
+    try {
+      const app = createTestApp();
+      const resp = (await app.handle(
+        new Request(
+          "http://localhost:8080/oauth/callback?code=test_code&state=test-state",
+        ),
+      )) as Response;
 
-    const app = createTestApp();
-    const resp = (await app.handle(
-      new Request(
-        "http://localhost:8080/oauth/callback?code=test_code&state=test-state",
-      ),
-    )) as Response;
+      assertEquals(resp.status, 200);
+      const text = await resp.text();
+      assertStringIncludes(text, "QVote Installation Successful");
 
-    assertEquals(resp.status, 200);
-    const text = await resp.text();
-    assertStringIncludes(text, "QVote installed successfully");
+      // Verify workspace was saved - can use the actual database
+      const workspace = await workspaceService.getWorkspaceByTeamId("T12345");
+      assertEquals(workspace?.teamName, "Test Team");
+      assertEquals(workspace?.accessToken, "xoxb-test-token");
+      assertEquals(workspace?.botUserId, "U12345");
+
+      // Clean up test data
+      await workspaceService.deleteWorkspaceByTeamId("T12345");
+    } finally {
+      exchangeCodeStub.restore();
+    }
   },
   sanitizeResources: false,
+  sanitizeOps: false,
 });
 
 Deno.test({
   name: "OAuth callback route handles Slack API error",
   fn: async () => {
-    // Create a new mock service with failed token exchange
-    const errorExchangeCodeForToken: ExchangeCodeForTokenType = async (_code: string) => {
-      // Add a minimal delay to make the async function actually await something
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      return {
-        success: false,
-        error: "invalid_code",
-      };
-    };
+    // Setup stub for exchangeCodeForToken with error response
+    const exchangeCodeStub = stub(
+      authService,
+      "exchangeCodeForToken",
+      () => Promise.resolve(ERROR_TOKEN_RESULT),
+    );
 
-    setAuthService({
-      ...mockServices,
-      exchangeCodeForToken: errorExchangeCodeForToken,
-    });
+    try {
+      const app = createTestApp();
+      const resp = await app.handle(
+        new Request(
+          "http://localhost:8080/oauth/callback?code=invalid_code&state=test-state",
+        ),
+      );
 
-    const app = createTestApp();
-    const resp = (await app.handle(
-      new Request(
-        "http://localhost:8080/oauth/callback?code=invalid_code&state=test-state",
-      ),
-    )) as Response;
-
-    assertEquals(resp.status, 500);
-    const text = await resp.text();
-    assertEquals(text, "OAuth failed: invalid_code");
+      assertEquals(resp?.status, 500);
+      const text = await resp?.text();
+      assertEquals(text, "OAuth failed: invalid_code");
+    } finally {
+      exchangeCodeStub.restore();
+    }
   },
   sanitizeResources: false,
-});
-
-// Clean up mocks
-Deno.test({
-  name: "Clean up",
-  fn() {
-    // No need to restore mocks since they're local to the test
-  },
-  sanitizeResources: false,
-  sanitizeOps: false,
 });
