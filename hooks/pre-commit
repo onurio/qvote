@@ -18,12 +18,24 @@ fi
 echo "Checking code coverage..."
 
 # Set minimum coverage thresholds
-MIN_LINE_COVERAGE=50.0
-MIN_BRANCH_COVERAGE=50.0
+MIN_LINE_COVERAGE=70.0
+MIN_BRANCH_COVERAGE=70.0
 
 # Run coverage test and generate HTML report
 echo "Running coverage tests..."
-DB_HOST=localhost DB_PORT=5432 DB_USER=test DB_PASSWORD=test DB_NAME=test DATABASE_URL=postgresql://test:test@localhost:5432/test deno test --allow-read --allow-env --allow-net --allow-ffi --coverage=coverage && deno coverage --html coverage
+
+# Check if we're in a CI environment and set the appropriate port
+if [ "$ENV" = "ci" ]; then
+  DB_PORT=5432
+  DB_URL="postgresql://test:test@localhost:5432/test"
+  echo "Using CI database port 5432..."
+else
+  DB_PORT=5433
+  DB_URL="postgresql://test:test@localhost:5433/test"
+  echo "Using local development database port 5433..."
+fi
+
+DB_HOST=localhost DB_PORT=$DB_PORT DB_USER=test DB_PASSWORD=test DB_NAME=test DATABASE_URL=$DB_URL deno test --allow-read --allow-env --allow-net --allow-ffi --coverage=coverage && deno coverage --html coverage
 
 # Extract coverage from HTML report
 if [ -f coverage/html/index.html ]; then

@@ -39,7 +39,7 @@ jobs:
 
       - name: Verify formatting
         run: deno task fmt:check
-      
+
       - name: Run linter
         run: deno task lint
 
@@ -58,6 +58,7 @@ jobs:
         run: |
           DB_HOST=localhost DB_PORT=5432 DB_USER=test DB_PASSWORD=test DB_NAME=test DATABASE_URL=postgresql://test:test@localhost:5432/test deno test --allow-read --allow-env --allow-net --allow-ffi --allow-run --trace-leaks tests/setup.ts "**/*_test.ts"
         env:
+          ENV: ci
           DB_HOST: localhost
           DB_PORT: 5432
           DB_USER: test
@@ -72,18 +73,19 @@ jobs:
           USE_HTTPS: "false"
           CERT_FILE: "certs/cert.pem"
           KEY_FILE: "certs/key.pem"
-      
+
       - name: Run coverage check
         run: |
           # Make the pre-commit hook script executable
           chmod +x hooks/pre-commit
-          
+
           # Remove deno task check:all from the script (we already did these checks)
           sed -i 's/deno task check:all/echo "Skipping check:all as tests were already run"/g' hooks/pre-commit
-          
+
           # Run just the coverage check portion of the script
           ./hooks/pre-commit
         env:
+          ENV: ci
           DB_HOST: localhost
           DB_PORT: 5432
           DB_USER: test
@@ -94,7 +96,7 @@ jobs:
           SLACK_CLIENT_SECRET: "test_client_secret"
           SLACK_REDIRECT_URI: "https://example.com/oauth/callback"
           SLACK_SIGNING_SECRET: "test_signing_secret"
-          
+
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4
         with:

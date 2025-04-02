@@ -11,6 +11,5 @@ echo "✅ Git hooks installed successfully!"
 echo "Pre-commit hook will enforce:"
 echo "  - Code linting, formatting, and type checking"
 echo "  - All tests passing"
-echo "  - Line coverage ≥ 81%"
-echo "  - Branch coverage ≥ 70%"
+echo "  - Line coverage and branch coverage checks"
 exit 0
