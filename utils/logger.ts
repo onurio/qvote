@@ -11,13 +11,15 @@ export enum LogLevel {
 // Default to INFO in production, DEBUG in development
 const DEFAULT_LOG_LEVEL = Deno.env.get("ENV") === "production" ? LogLevel.INFO : LogLevel.DEBUG;
 
-// Get configured log level or use default
-const configuredLevel = Deno.env.get("LOG_LEVEL");
-const CURRENT_LOG_LEVEL = configuredLevel
-  ? (Object.values(LogLevel).includes(configuredLevel as LogLevel)
-    ? configuredLevel as LogLevel
-    : DEFAULT_LOG_LEVEL)
-  : DEFAULT_LOG_LEVEL;
+// Function to get the current log level (for testing support)
+function getCurrentLogLevel(): LogLevel {
+  const configuredLevel = Deno.env.get("LOG_LEVEL");
+  return configuredLevel
+    ? (Object.values(LogLevel).includes(configuredLevel as LogLevel)
+      ? configuredLevel as LogLevel
+      : DEFAULT_LOG_LEVEL)
+    : DEFAULT_LOG_LEVEL;
+}
 
 // Log level priority map
 const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
@@ -29,7 +31,9 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
 
 // Check if a log level should be displayed based on current configuration
 const shouldLog = (level: LogLevel): boolean => {
-  return LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[CURRENT_LOG_LEVEL];
+  // Get the current log level each time to support dynamic changes (useful for testing)
+  const currentLogLevel = getCurrentLogLevel();
+  return LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[currentLogLevel];
 };
 
 // Format message with timestamp and log level

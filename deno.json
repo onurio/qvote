@@ -2,7 +2,7 @@
   "tasks": {
     "dev": "deno run --allow-net --allow-env --allow-read --allow-run --allow-ffi --watch main.ts",
     "start": "deno run --allow-net --allow-env --allow-read --allow-ffi main.ts",
-    "test": "deno task test:db:setup && DB_HOST=localhost DB_PORT=5433 DB_USER=test DB_PASSWORD=test DB_NAME=test DATABASE_URL=postgresql://test:test@localhost:5433/test deno test --allow-read --allow-env --allow-net --allow-ffi --allow-run --trace-leaks tests/setup.ts \"**/*_test.ts\"",
+    "test": "deno task test:db:setup && LOG_LEVEL=ERROR DB_HOST=localhost DB_PORT=5433 DB_USER=test DB_PASSWORD=test DB_NAME=test DATABASE_URL=postgresql://test:test@localhost:5433/test deno test --allow-read --allow-env --allow-net --allow-ffi --allow-run --trace-leaks tests/setup.ts \"**/*_test.ts\"",
     "coverage": "deno task test --coverage=coverage && deno coverage coverage",
     "test:db:setup": "scripts/setup-test-db.sh",
     "lint": "deno lint",
