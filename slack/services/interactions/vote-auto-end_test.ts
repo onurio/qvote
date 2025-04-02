@@ -91,8 +91,9 @@ describe("checkAndAutoEndVote", () => {
   });
 
   it("returns early if vote not found", async () => {
-    // No need to mock - just test with a non-existent vote ID
-    await checkAndAutoEndVote("non-existent-vote-id", testUserId1);
+    // Use a properly formatted UUID that doesn't exist in the database
+    const nonExistentId = crypto.randomUUID();
+    await checkAndAutoEndVote(nonExistentId, testUserId1);
 
     // No assertions needed - if there were any errors, the test would fail
   });
