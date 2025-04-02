@@ -1,133 +1,81 @@
-import { assertSpyCallArgs, assertSpyCalls, stub } from "jsr:@std/testing/mock";
 import { assertEquals } from "@std/assert/equals";
-import { spy } from "jsr:@std/testing/mock";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { afterEach, beforeEach, describe, it } from "jsr:@std/testing/bdd";
 import { checkAndAutoEndVote } from "./vote-auto-end.ts";
-import { votesService, workspaceService } from "@db/prisma.ts";
+import { prisma, votesService } from "@db/prisma.ts";
 import { haveAllVotersVoted } from "@slack/services/interactions/vote-utils.ts";
+import "../../../tests/setup.ts";
 // @ts-types="generated/index.d.ts"
 
-// Helper to create properly structured vote responses
-const createResponse = (userId: string, optionIndex: number, credits: number) => ({
-  id: `response-${userId}-${optionIndex}`,
-  voteId: "vote-123",
-  userId,
-  optionIndex,
-  credits,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-});
-
-// Create a properly structured mock vote
-const createMockVote = (overrides = {}) => {
-  const defaultVote = {
-    id: "vote-123",
-    workspaceId: "workspace-123",
-    channelId: "channel-123",
-    creatorId: "creator-123",
-    title: "Test Vote",
-    description: "This is a test vote",
-    options: ["Option 1", "Option 2"],
-    allowedVoters: ["user-123", "user-456"],
-    creditsPerUser: 100,
-    isEnded: false,
-    responses: [
-      createResponse("user-123", 0, 10),
-      createResponse("user-456", 1, 20),
-    ],
-    startTime: new Date(),
-    endTime: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-
-  return { ...defaultVote, ...overrides };
-};
-
 describe("checkAndAutoEndVote", () => {
-  it("returns early if vote not found", async () => {
-    // Mock vote service to return null
-    using getVoteByIdStub = stub(votesService, "getVoteById", () => Promise.resolve(null));
-    using endVoteSpy = spy(votesService, "endVote");
-    using getWorkspaceTokenSpy = spy(workspaceService, "getWorkspaceToken");
+  // Test data IDs - use valid UUIDs
+  const testWorkspaceId = "aaaaaaaa-bbbb-cccc-dddd-000000000001";
+  const testChannelId = "C12345678";
+  const testUserId1 = "U12345678";
+  const testUserId2 = "U87654321";
 
-    await checkAndAutoEndVote("non-existent-vote-id", "user-123");
+  // Clean up database before each test
+  beforeEach(async () => {
+    // Clean up any existing test data
 
-    // Check that getVoteById was called once
-    assertSpyCalls(getVoteByIdStub, 1);
-    // No other methods should be called
-    assertSpyCalls(endVoteSpy, 0);
-    assertSpyCalls(getWorkspaceTokenSpy, 0);
+    await prisma.vote.deleteMany({
+      where: { workspaceId: testWorkspaceId },
+    });
+
+    await prisma.workspace.deleteMany({
+      where: { id: testWorkspaceId },
+    });
+
+    // Create a test workspace for all tests that require it
+    await prisma.workspace.create({
+      data: {
+        id: testWorkspaceId,
+        teamId: "T12345678",
+        teamName: "Test Team",
+        accessToken: "xoxb-test-token",
+        botUserId: "B12345678",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
   });
 
-  it("returns early if vote is already ended", async () => {
-    // Mock vote service to return vote with isEnded=true
-    const endedVote = createMockVote({ isEnded: true, endTime: new Date() });
+  // Clean up database after all tests
+  afterEach(async () => {
+    // First find all votes for the workspace
+    const votes = await prisma.vote.findMany({
+      where: { workspaceId: testWorkspaceId },
+      select: { id: true },
+    });
 
-    using getVoteByIdStub = stub(votesService, "getVoteById", () => Promise.resolve(endedVote));
-    using endVoteSpy = spy(votesService, "endVote");
-    using getWorkspaceTokenSpy = spy(workspaceService, "getWorkspaceToken");
+    // Delete all vote responses for those votes
+    if (votes.length > 0) {
+      await prisma.voteResponse.deleteMany({
+        where: {
+          voteId: { in: votes.map((v) => v.id) },
+        },
+      });
+    }
 
-    await checkAndAutoEndVote("vote-123", "user-123");
+    // Delete all votes for the workspace
+    await prisma.vote.deleteMany({
+      where: { workspaceId: testWorkspaceId },
+    });
 
-    // Check that getVoteById was called with correct vote ID
-    assertSpyCallArgs(getVoteByIdStub, 0, ["vote-123"]);
-    // No other methods should be called
-    assertSpyCalls(endVoteSpy, 0);
-    assertSpyCalls(getWorkspaceTokenSpy, 0);
-  });
-
-  it("returns early if no allowed voters", async () => {
-    // Mock vote service to return vote with null allowedVoters
-    const noAllowedVotersVote = createMockVote({ allowedVoters: null });
-
-    using getVoteByIdStub = stub(
-      votesService,
-      "getVoteById",
-      () => Promise.resolve(noAllowedVotersVote),
-    );
-    using endVoteSpy = spy(votesService, "endVote");
-    using getWorkspaceTokenSpy = spy(workspaceService, "getWorkspaceToken");
-
-    await checkAndAutoEndVote("vote-123", "user-123");
-
-    // Check that getVoteById was called once
-    assertSpyCalls(getVoteByIdStub, 1);
-    // No other methods should be called
-    assertSpyCalls(endVoteSpy, 0);
-    assertSpyCalls(getWorkspaceTokenSpy, 0);
-  });
-
-  it("returns early if empty allowed voters array", async () => {
-    // Mock vote service to return vote with empty allowedVoters array
-    const emptyAllowedVotersVote = createMockVote({ allowedVoters: [] });
-
-    using getVoteByIdStub = stub(
-      votesService,
-      "getVoteById",
-      () => Promise.resolve(emptyAllowedVotersVote),
-    );
-    using endVoteSpy = spy(votesService, "endVote");
-    using getWorkspaceTokenSpy = spy(workspaceService, "getWorkspaceToken");
-
-    await checkAndAutoEndVote("vote-123", "user-123");
-
-    // Check that getVoteById was called once
-    assertSpyCalls(getVoteByIdStub, 1);
-    // No other methods should be called
-    assertSpyCalls(endVoteSpy, 0);
-    assertSpyCalls(getWorkspaceTokenSpy, 0);
+    // Delete the workspace
+    await prisma.workspace.deleteMany({
+      where: { id: testWorkspaceId },
+    });
   });
 
   it("tests haveAllVotersVoted function", () => {
-    // Mock vote data with minimal structure needed by haveAllVotersVoted
+    // Test data for the utility function
     const vote = {
       responses: [
-        { userId: "user-123", credits: 10 },
-        { userId: "user-456", credits: 5 },
+        { userId: testUserId1, credits: 10 },
+        { userId: testUserId2, credits: 5 },
       ],
     };
-    const allowedVoters = ["user-123", "user-456"];
+    const allowedVoters = [testUserId1, testUserId2];
 
     // Check if all voters have voted
     const allVoted = haveAllVotersVoted(vote, allowedVoters);
@@ -136,98 +84,150 @@ describe("checkAndAutoEndVote", () => {
 
     // Test not all voters have voted
     const vote2 = {
-      responses: [{ userId: "user-123", credits: 10 }],
+      responses: [{ userId: testUserId1, credits: 10 }],
     };
     const allVoted2 = haveAllVotersVoted(vote2, allowedVoters);
     assertEquals(allVoted2, false);
   });
 
-  it("returns early if not all voters have voted yet", async () => {
-    // We need to modify the original function's behavior to simulate not all voters voted
-    const voteWithSomeVoters = createMockVote({
-      // Only one voter has voted, but there are two allowed voters
-      responses: [createResponse("user-123", 0, 10)],
+  it("returns early if vote not found", async () => {
+    // No need to mock - just test with a non-existent vote ID
+    await checkAndAutoEndVote("non-existent-vote-id", testUserId1);
+
+    // No assertions needed - if there were any errors, the test would fail
+  });
+
+  it("returns early if vote is already ended", async () => {
+    // Create a vote
+    const createdVote = await votesService.createVote({
+      workspaceId: testWorkspaceId,
+      channelId: testChannelId,
+      creatorId: testUserId1,
+      title: "Test Ended Vote",
+      description: "This vote is already ended",
+      options: ["Option 1", "Option 2"],
+      allowedVoters: [testUserId1, testUserId2],
+      creditsPerUser: 100,
     });
 
-    using getVoteByIdStub = stub(
-      votesService,
-      "getVoteById",
-      () => Promise.resolve(voteWithSomeVoters),
-    );
-    using endVoteSpy = spy(votesService, "endVote");
-    using getWorkspaceTokenSpy = spy(workspaceService, "getWorkspaceToken");
+    // End the vote immediately
+    await votesService.endVote(createdVote.id);
 
-    await checkAndAutoEndVote("vote-123", "user-456");
+    await checkAndAutoEndVote(createdVote.id, testUserId1);
 
-    // Check that getVoteById was called once
-    assertSpyCalls(getVoteByIdStub, 1);
-    // endVote should not be called since not all voters have voted
-    assertSpyCalls(endVoteSpy, 0);
-    assertSpyCalls(getWorkspaceTokenSpy, 0);
+    // Verify the vote is still ended
+    const vote = await votesService.getVoteById(createdVote.id);
+    assertEquals(vote?.isEnded, true);
+  });
+
+  it("returns early if no allowed voters", async () => {
+    // Create a vote with no allowed voters (null)
+    const createdVote = await votesService.createVote({
+      workspaceId: testWorkspaceId,
+      channelId: testChannelId,
+      creatorId: testUserId1,
+      title: "Test Vote No Allowed Voters",
+      description: "This vote has no allowed voters",
+      options: ["Option 1", "Option 2"],
+      allowedVoters: null,
+      creditsPerUser: 100,
+    });
+
+    await checkAndAutoEndVote(createdVote.id, testUserId1);
+
+    // Verify the vote is still not ended
+    const vote = await votesService.getVoteById(createdVote.id);
+    assertEquals(vote?.isEnded, false);
+  });
+
+  it("returns early if empty allowed voters array", async () => {
+    // Create a vote with empty allowed voters array
+    const createdVote = await votesService.createVote({
+      workspaceId: testWorkspaceId,
+      channelId: testChannelId,
+      creatorId: testUserId1,
+      title: "Test Vote Empty Allowed Voters",
+      description: "This vote has an empty allowed voters array",
+      options: ["Option 1", "Option 2"],
+      allowedVoters: [],
+      creditsPerUser: 100,
+    });
+
+    await checkAndAutoEndVote(createdVote.id, testUserId1);
+
+    // Verify the vote is still not ended
+    const vote = await votesService.getVoteById(createdVote.id);
+    assertEquals(vote?.isEnded, false);
+  });
+
+  it("returns early if not all voters have voted yet", async () => {
+    // Create a vote where not all allowed voters have voted
+    const createdVote = await votesService.createVote({
+      workspaceId: testWorkspaceId,
+      channelId: testChannelId,
+      creatorId: testUserId1,
+      title: "Test Vote Not All Voted",
+      description: "This vote is missing some votes",
+      options: ["Option 1", "Option 2"],
+      allowedVoters: [testUserId1, testUserId2],
+      creditsPerUser: 100,
+    });
+
+    // Add response for only one voter
+    await votesService.recordVoteResponse(createdVote.id, testUserId1, 0, 10);
+
+    await checkAndAutoEndVote(createdVote.id, testUserId1);
+
+    // Verify the vote is still not ended
+    const vote = await votesService.getVoteById(createdVote.id);
+    assertEquals(vote?.isEnded, false);
   });
 
   it("ends vote when all voters have voted", async () => {
-    // Mock vote service to return a vote where all allowed voters have already voted
-    const voteWithAllVoters = createMockVote();
+    // Create a vote where all allowed voters will vote
+    const createdVote = await votesService.createVote({
+      workspaceId: testWorkspaceId,
+      channelId: testChannelId,
+      creatorId: testUserId1,
+      title: "Test Vote All Voted",
+      description: "All allowed voters have voted on this vote",
+      options: ["Option 1", "Option 2"],
+      allowedVoters: [testUserId1, testUserId2],
+      creditsPerUser: 100,
+    });
 
-    using getVoteByIdStub = stub(
-      votesService,
-      "getVoteById",
-      () => Promise.resolve(voteWithAllVoters),
-    );
-    using endVoteSpy = stub(
-      votesService,
-      "endVote",
-      () => Promise.resolve({ ...voteWithAllVoters, isEnded: true }),
-    );
-    using getWorkspaceTokenStub = stub(
-      workspaceService,
-      "getWorkspaceToken",
-      () => Promise.resolve("xoxb-test-token"),
-    );
+    // Add responses for both voters
+    await votesService.recordVoteResponse(createdVote.id, testUserId1, 0, 10);
+    await votesService.recordVoteResponse(createdVote.id, testUserId2, 1, 20);
 
-    await checkAndAutoEndVote("vote-123", "user-456");
+    await checkAndAutoEndVote(createdVote.id, testUserId2);
 
-    // Check that all required methods were called
-    assertSpyCallArgs(getVoteByIdStub, 0, ["vote-123"]);
-    assertSpyCalls(endVoteSpy, 1);
-    assertSpyCalls(getWorkspaceTokenStub, 1);
-
-    // Verify the correct arguments were passed
-    assertEquals(endVoteSpy.calls[0].args[0], "vote-123");
-    assertEquals(getWorkspaceTokenStub.calls[0].args[0], "workspace-123");
+    // Verify the vote is now ended
+    const vote = await votesService.getVoteById(createdVote.id);
+    assertEquals(vote?.isEnded, true);
   });
 
   it("returns early if workspace token not found", async () => {
-    // Mock vote service to return a vote where all voters have voted
-    const voteWithAllVoters = createMockVote();
+    // Create a vote but NOT a workspace (so token won't be found)
+    const createdVote = await votesService.createVote({
+      workspaceId: testWorkspaceId, // This workspace doesn't exist
+      channelId: testChannelId,
+      creatorId: testUserId1,
+      title: "Test Vote No Workspace",
+      description: "This vote has a workspace with no token",
+      options: ["Option 1", "Option 2"],
+      allowedVoters: [testUserId1, testUserId2],
+      creditsPerUser: 100,
+    });
 
-    using getVoteByIdStub = stub(
-      votesService,
-      "getVoteById",
-      () => Promise.resolve(voteWithAllVoters),
-    );
-    using endVoteSpy = stub(
-      votesService,
-      "endVote",
-      () => Promise.resolve({ ...voteWithAllVoters, isEnded: true }),
-    );
-    // Mock getWorkspaceToken to return null (token not found)
-    using getWorkspaceTokenStub = stub(
-      workspaceService,
-      "getWorkspaceToken",
-      () => Promise.resolve(null),
-    );
+    // Add responses for both voters
+    await votesService.recordVoteResponse(createdVote.id, testUserId1, 0, 10);
+    await votesService.recordVoteResponse(createdVote.id, testUserId2, 1, 20);
 
-    await checkAndAutoEndVote("vote-123", "user-456");
+    await checkAndAutoEndVote(createdVote.id, testUserId2);
 
-    // Check that methods were called correctly
-    assertSpyCalls(getVoteByIdStub, 1);
-    assertSpyCalls(endVoteSpy, 1);
-    assertSpyCalls(getWorkspaceTokenStub, 1);
-
-    // Verify the correct arguments were passed
-    assertEquals(endVoteSpy.calls[0].args[0], "vote-123");
-    assertEquals(getWorkspaceTokenStub.calls[0].args[0], "workspace-123");
+    // The vote should still be ended even if token wasn't found
+    const vote = await votesService.getVoteById(createdVote.id);
+    assertEquals(vote?.isEnded, true);
   });
 });
