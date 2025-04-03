@@ -88,6 +88,8 @@ describe("checkAndAutoEndVote", () => {
         },
       },
     });
+
+    await prisma.$disconnect();
   });
 
   it("tests haveAllVotersVoted function", () => {
