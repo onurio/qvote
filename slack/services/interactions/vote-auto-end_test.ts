@@ -3,8 +3,6 @@ import { afterEach, beforeEach, describe, it } from "jsr:@std/testing/bdd";
 import { checkAndAutoEndVote } from "./vote-auto-end.ts";
 import { prisma, votesService } from "@db/prisma.ts";
 import { haveAllVotersVoted } from "@slack/services/interactions/vote-utils.ts";
-import "../../../tests/setup.ts";
-// @ts-types="generated/index.d.ts"
 
 describe("checkAndAutoEndVote", () => {
   // Test data IDs - use valid UUIDs

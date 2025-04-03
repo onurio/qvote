@@ -56,7 +56,7 @@ jobs:
 
       - name: Run tests
         run: |
-          DB_HOST=localhost DB_PORT=5432 DB_USER=test DB_PASSWORD=test DB_NAME=test DATABASE_URL=postgresql://test:test@localhost:5432/test deno test --allow-read --allow-env --allow-net --allow-ffi --allow-run --trace-leaks tests/setup.ts "**/*_test.ts"
+          deno task test
         env:
           ENV: ci
           DB_HOST: localhost
