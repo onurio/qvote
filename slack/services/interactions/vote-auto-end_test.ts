@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert/equals";
-import { afterEach, beforeEach, describe, it } from "jsr:@std/testing/bdd";
+import { afterAll, afterEach, beforeEach, describe, it } from "jsr:@std/testing/bdd";
 import { checkAndAutoEndVote } from "./vote-auto-end.ts";
 import { prisma, votesService } from "@db/prisma.ts";
 import { haveAllVotersVoted } from "@slack/services/interactions/vote-utils.ts";
@@ -21,6 +21,14 @@ describe("checkAndAutoEndVote", () => {
 
     await prisma.workspace.deleteMany({
       where: { id: testWorkspaceId },
+    });
+
+    await prisma.voteResponse.deleteMany({
+      where: {
+        vote: {
+          workspaceId: testWorkspaceId,
+        },
+      },
     });
 
     // Create a test workspace for all tests that require it
@@ -62,6 +70,23 @@ describe("checkAndAutoEndVote", () => {
     // Delete the workspace
     await prisma.workspace.deleteMany({
       where: { id: testWorkspaceId },
+    });
+  });
+
+  afterAll(async () => {
+    // Clean up any remaining test data
+    await prisma.vote.deleteMany({
+      where: { workspaceId: testWorkspaceId },
+    });
+    await prisma.workspace.deleteMany({
+      where: { id: testWorkspaceId },
+    });
+    await prisma.voteResponse.deleteMany({
+      where: {
+        vote: {
+          workspaceId: testWorkspaceId,
+        },
+      },
     });
   });
 
