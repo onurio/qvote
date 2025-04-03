@@ -5,7 +5,7 @@
 echo "Running QVote pre-commit checks..."
 
 # Run the check:all task which includes lint, format check, type check, and tests
-deno task check:all
+deno task check:all --html
 
 # Capture the exit code
 EXIT_CODE=$?
@@ -35,7 +35,7 @@ else
   echo "Using local development database port 5433..."
 fi
 
-DB_HOST=localhost DB_PORT=$DB_PORT DB_USER=test DB_PASSWORD=test DB_NAME=test DATABASE_URL=$DB_URL deno test --allow-read --allow-env --allow-net --allow-ffi --coverage=coverage && deno coverage --html coverage
+# DB_HOST=localhost DB_PORT=$DB_PORT DB_USER=test DB_PASSWORD=test DB_NAME=test DATABASE_URL=$DB_URL deno test --allow-read --allow-env --allow-net --allow-ffi --coverage=coverage && deno coverage --html coverage
 
 # Extract coverage from HTML report
 if [ -f coverage/html/index.html ]; then

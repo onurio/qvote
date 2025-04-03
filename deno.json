@@ -9,7 +9,7 @@
     "fmt": "deno fmt",
     "fmt:check": "deno fmt --check",
     "check": "deno check **/*.ts",
-    "check:all": "deno task lint && deno task fmt:check && deno task check && deno task test",
+    "check:all": "deno task lint && deno task fmt:check && deno task check && deno task coverage",
     "setup-db": "prisma db push",
     "prisma:generate": "deno run -A --unstable-detect-cjs npm:prisma@latest generate",
     "prisma:install": "deno run -A npm:prisma@latest install",

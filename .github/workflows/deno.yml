@@ -54,35 +54,12 @@ jobs:
       - name: Run type check
         run: deno task check
 
-      - name: Run tests
-        run: |
-          deno task test
-        env:
-          ENV: ci
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_USER: test
-          DB_PASSWORD: test
-          DB_NAME: test
-          DATABASE_URL: postgresql://test:test@localhost:5432/test
-          SLACK_CLIENT_ID: "test_client_id"
-          SLACK_CLIENT_SECRET: "test_client_secret"
-          SLACK_REDIRECT_URI: "https://example.com/oauth/callback"
-          SLACK_SIGNING_SECRET: "test_signing_secret"
-          PORT: "8443"
-          USE_HTTPS: "false"
-          CERT_FILE: "certs/cert.pem"
-          KEY_FILE: "certs/key.pem"
-
-      - name: Run coverage check
+      - name: Run pre-commit hook (includes tests and coverage checks)
         run: |
           # Make the pre-commit hook script executable
           chmod +x hooks/pre-commit
-
-          # Remove deno task check:all from the script (we already did these checks)
-          sed -i 's/deno task check:all/echo "Skipping check:all as tests were already run"/g' hooks/pre-commit
-
-          # Run just the coverage check portion of the script
+          
+          # Run the pre-commit hook, which now uses check:all with coverage
           ./hooks/pre-commit
         env:
           ENV: ci
