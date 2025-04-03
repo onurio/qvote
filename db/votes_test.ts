@@ -103,8 +103,6 @@ Deno.test({
     assertEquals(result.creditsPerUser, 100); // Default value
     assertEquals(result.isEnded, false); // Default value
   },
-  sanitizeResources: false,
-  sanitizeOps: false,
 });
 
 Deno.test({
@@ -117,8 +115,6 @@ Deno.test({
     assertEquals(result?.title, "Test Vote");
     assertEquals(result?.responses.length, 3);
   },
-  sanitizeResources: false,
-  sanitizeOps: false,
 });
 
 Deno.test({
@@ -130,8 +126,6 @@ Deno.test({
     assertEquals(result.isEnded, true);
     assertEquals(result.id, "vote-123");
   },
-  sanitizeResources: false,
-  sanitizeOps: false,
 });
 
 Deno.test({
@@ -163,8 +157,6 @@ Deno.test({
     assertEquals(result.results[2].option, "Option 3");
     assertEquals(result.results[2].totalCredits, 0);
   },
-  sanitizeResources: false,
-  sanitizeOps: false,
 });
 
 Deno.test({
@@ -183,6 +175,4 @@ Deno.test({
     assertEquals(result.optionIndex, 1);
     assertEquals(result.credits, 36);
   },
-  sanitizeResources: false,
-  sanitizeOps: false,
 });

@@ -67,8 +67,6 @@ Deno.test({
       generateAuthUrlStub.restore();
     }
   },
-  sanitizeResources: false,
-  sanitizeOps: false,
 });
 
 Deno.test("OAuth callback route handles missing code parameter", async () => {
@@ -127,8 +125,6 @@ Deno.test({
       exchangeCodeStub.restore();
     }
   },
-  sanitizeResources: false,
-  sanitizeOps: false,
 });
 
 Deno.test({
@@ -156,5 +152,4 @@ Deno.test({
       exchangeCodeStub.restore();
     }
   },
-  sanitizeResources: false,
 });

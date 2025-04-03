@@ -51,8 +51,6 @@ Deno.test({
     assertEquals(result.accessToken, "xoxb-test-token");
     assertEquals(result.botUserId, "U54321");
   },
-  sanitizeResources: false,
-  sanitizeOps: false,
 });
 
 Deno.test({
@@ -64,8 +62,6 @@ Deno.test({
     assertEquals(result?.teamId, "T12345");
     assertEquals(result?.teamName, "Test Team");
   },
-  sanitizeResources: false,
-  sanitizeOps: false,
 });
 
 Deno.test({
@@ -78,8 +74,6 @@ Deno.test({
     assertEquals(result[0].teamId, "T12345");
     assertEquals(result[0].teamName, "Test Team");
   },
-  sanitizeResources: false,
-  sanitizeOps: false,
 });
 
 Deno.test({
@@ -90,6 +84,4 @@ Deno.test({
     // Verify result
     assertEquals(result, true);
   },
-  sanitizeResources: false,
-  sanitizeOps: false,
 });
