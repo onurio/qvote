@@ -1,10 +1,10 @@
-import { createErrorMessageBlocks } from "../blocks.ts";
 import { InteractionResponse, SlackInteraction } from "./types.ts";
 import logger from "@utils/logger.ts";
 import { checkAndAutoEndVote } from "./vote-auto-end.ts";
 import { votesService } from "@db/prisma.ts";
 // @ts-types="generated/index.d.ts"
 import { Vote } from "generated/index.js";
+import { createErrorResponse } from "@slack/services/interactions/vote-utils.ts";
 
 // Custom error types
 class VoteError extends Error {
@@ -143,14 +143,7 @@ export async function handleVoteSubmission(
     if (error instanceof VoteError) {
       // Different response format for NotFoundError vs other errors
       if (error instanceof NotFoundError) {
-        return {
-          status: 200,
-          body: {
-            response_type: "ephemeral",
-            text: error.message,
-            blocks: createErrorMessageBlocks("Not Found", error.message),
-          },
-        };
+        return createErrorResponse(error.message, "Not Found");
       } else {
         return {
           status: 200,

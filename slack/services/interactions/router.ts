@@ -5,6 +5,7 @@ import { handleShowVoteResults } from "./handlers/show-results.ts";
 import { handleOpenVoteModal } from "./vote-modal.ts";
 import { handleVoteSubmission } from "./vote-submission.ts";
 import logger from "@utils/logger.ts";
+import { createErrorResponse } from "@slack/services/interactions/vote-utils.ts";
 
 // Route the interaction to the appropriate handler
 export async function routeSlackInteraction(
@@ -20,13 +21,10 @@ export async function routeSlackInteraction(
       return await handleViewSubmission(payload, workspaceId);
     default:
       logger.warn(`Unknown interaction type`, { type: payload.type });
-      return {
-        status: 200,
-        body: {
-          text: "This interaction type is not yet supported.",
-          response_type: "ephemeral",
-        },
-      };
+      return createErrorResponse(
+        "This interaction type is not yet supported.",
+        "Unsupported Interaction",
+      );
   }
 }
 
@@ -37,13 +35,7 @@ async function handleBlockActions(
 ): Promise<InteractionResponse> {
   logger.debug("Handling block actions", payload);
   if (!payload.actions || payload.actions.length === 0) {
-    return {
-      status: 200,
-      body: {
-        text: "No action was provided.",
-        response_type: "ephemeral",
-      },
-    };
+    return createErrorResponse("No action was provided.", "Missing Action");
   }
 
   // Get the first action
@@ -59,13 +51,10 @@ async function handleBlockActions(
       return await handleEndVote(action, payload, workspaceId);
     default:
       logger.warn(`Unknown action`, { actionId: action.action_id });
-      return {
-        status: 200,
-        body: {
-          text: `This action (${action.action_id}) is not yet supported.`,
-          response_type: "ephemeral",
-        },
-      };
+      return createErrorResponse(
+        `This action (${action.action_id}) is not yet supported.`,
+        "Unsupported Action",
+      );
   }
 }
 
@@ -78,13 +67,10 @@ async function handleViewSubmission(
   logger.info("Handling view submission", { viewId: payload.view?.id });
 
   if (!payload.view) {
-    return {
-      status: 200,
-      body: {
-        response_type: "ephemeral",
-        text: "No view data found in submission.",
-      },
-    };
+    return createErrorResponse(
+      "No view data found in submission.",
+      "Missing View Data",
+    );
   }
 
   // Get the callback_id to determine what type of submission it is
@@ -96,12 +82,9 @@ async function handleViewSubmission(
     return await handleVoteSubmission(payload);
   } else {
     logger.warn(`Unknown view submission type`, { callbackId });
-    return {
-      status: 200,
-      body: {
-        response_type: "ephemeral",
-        text: "This submission type is not supported.",
-      },
-    };
+    return createErrorResponse(
+      `This submission type (${callbackId}) is not yet supported.`,
+      "Unsupported Submission Type",
+    );
   }
 }

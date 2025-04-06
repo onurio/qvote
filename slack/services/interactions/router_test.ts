@@ -62,7 +62,7 @@ describe("routeSlackInteraction", () => {
     const response = await routeSlackInteraction(payload, "workspace-123");
 
     assertEquals(response.status, 200);
-    assertStringIncludes(response.body.text || "", "not supported");
+    assertStringIncludes(response.body.text || "", "not yet supported");
   });
 
   it("handles missing view data gracefully", async () => {

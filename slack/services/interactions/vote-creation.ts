@@ -4,6 +4,7 @@ import { createVoteCreationModalView, createVoteSuccessModalView } from "./templ
 
 import logger from "@utils/logger.ts";
 import { votesService, workspaceService } from "@db/prisma.ts";
+import { createErrorResponse } from "@slack/services/interactions/vote-utils.ts";
 
 // Handle the vote creation submission
 export async function handleCreateVoteSubmission(
@@ -150,17 +151,10 @@ export async function handleCreateVoteSubmission(
       workspaceId,
     );
     if (!workspaceToken) {
-      return {
-        status: 200,
-        body: {
-          text: "Workspace not found or authentication error.",
-          response_type: "ephemeral",
-          blocks: createErrorMessageBlocks(
-            "Authentication Error",
-            "Workspace not found or authentication error.",
-          ),
-        },
-      };
+      return createErrorResponse(
+        "Workspace not found or authentication error.",
+        "Authentication Error",
+      );
     }
 
     // Create the blocks for the vote message
@@ -278,17 +272,10 @@ export async function openVoteCreationModal(
       workspaceId,
     );
     if (!workspaceToken) {
-      return {
-        status: 200,
-        body: {
-          text: "Workspace not found or authentication error.",
-          response_type: "ephemeral",
-          blocks: createErrorMessageBlocks(
-            "Authentication Error",
-            "Workspace not found or authentication error.",
-          ),
-        },
-      };
+      return createErrorResponse(
+        "Workspace not found or authentication error.",
+        "Authentication Error",
+      );
     }
 
     // Create the modal view using the template
@@ -313,17 +300,10 @@ export async function openVoteCreationModal(
       logger.error("Error opening vote creation modal", {
         error: result.error,
       });
-      return {
-        status: 200,
-        body: {
-          text: `Error opening vote creation modal: ${result.error}`,
-          response_type: "ephemeral",
-          blocks: createErrorMessageBlocks(
-            "Modal Error",
-            `Error opening vote creation modal: ${result.error}`,
-          ),
-        },
-      };
+      return createErrorResponse(
+        `Error opening vote creation modal: ${result.error}`,
+        "Modal Error",
+      );
     }
 
     // Successfully opened modal
@@ -333,16 +313,11 @@ export async function openVoteCreationModal(
     };
   } catch (error) {
     logger.error("Error opening vote creation modal", error);
-    return {
-      status: 200,
-      body: {
-        text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-        response_type: "ephemeral",
-        blocks: createErrorMessageBlocks(
-          "Error",
-          `${error instanceof Error ? error.message : String(error)}`,
-        ),
-      },
-    };
+    return createErrorResponse(
+      `Error opening vote creation modal: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      "Modal Error",
+    );
   }
 }
