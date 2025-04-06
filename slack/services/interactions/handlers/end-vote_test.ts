@@ -1,28 +1,124 @@
 import { assertEquals, assertStringIncludes } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { afterAll, afterEach, beforeEach, describe, it } from "jsr:@std/testing/bdd";
 import { handleEndVote } from "./end-vote.ts";
 import type { SlackInteraction } from "../types.ts";
+import { prisma, votesService } from "@db/prisma.ts";
 
-// Test without trying to mock the imported modules
-describe("handleEndVote", () => {
+describe("handleEndVote", { sanitizeResources: false, sanitizeOps: false }, () => {
+  // Test data
+  const testWorkspaceId = "aaaaaaaa-bbbb-cccc-dddd-000000000001";
+  const testVoteId = "aaaaaaaa-bbbb-cccc-dddd-000000000002";
+  const testChannelId = "C12345678";
+  const testCreatorId = "U12345678";
+  const testOtherUserId = "U87654321";
+
   // Basic setup for the mock Slack action
   const mockAction = {
     action_id: "end_vote",
     block_id: "actions_block",
-    value: "end_vote-123",
+    value: `end_${testVoteId}`,
     type: "button",
   };
 
   const mockPayload: SlackInteraction = {
     type: "block_actions",
     actions: [mockAction],
-    user: { id: "user-123" }, // Set as creator ID
+    user: { id: testCreatorId }, // Set as creator ID
     trigger_id: "trigger123",
-    team: { id: "team-123" },
-    channel: { id: "channel-123" },
+    team: { id: "T12345678" },
+    channel: { id: testChannelId },
+    message: { ts: "1234567890.123456" },
   };
 
-  // Test error cases that don't require mocking the database
+  // Set up and clean up test data
+  beforeEach(async () => {
+    // Clean up any existing test data
+    await prisma.voteResponse.deleteMany({
+      where: {
+        vote: { workspaceId: testWorkspaceId },
+      },
+    });
+
+    await prisma.vote.deleteMany({
+      where: { workspaceId: testWorkspaceId },
+    });
+
+    await prisma.workspace.deleteMany({
+      where: { id: testWorkspaceId },
+    });
+
+    // Create test workspace
+    await prisma.workspace.create({
+      data: {
+        id: testWorkspaceId,
+        teamId: "T12345678",
+        teamName: "Test Team",
+        accessToken: "xoxb-test-token",
+        botUserId: "B12345678",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    // Create a test vote
+    await prisma.vote.create({
+      data: {
+        id: testVoteId,
+        workspaceId: testWorkspaceId,
+        channelId: testChannelId,
+        creatorId: testCreatorId,
+        title: "Test Vote",
+        description: "A test vote for end-vote handler",
+        options: ["Option 1", "Option 2"],
+        allowedVoters: [testCreatorId, testOtherUserId],
+        creditsPerUser: 100,
+        isEnded: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    // Add some vote responses
+    await prisma.voteResponse.create({
+      data: {
+        voteId: testVoteId,
+        userId: testCreatorId,
+        optionIndex: 0,
+        credits: 75,
+      },
+    });
+
+    await prisma.voteResponse.create({
+      data: {
+        voteId: testVoteId,
+        userId: testOtherUserId,
+        optionIndex: 1,
+        credits: 25,
+      },
+    });
+  });
+
+  afterEach(async () => {
+    // Clean up test data
+    await prisma.voteResponse.deleteMany({
+      where: {
+        vote: { workspaceId: testWorkspaceId },
+      },
+    });
+
+    await prisma.vote.deleteMany({
+      where: { workspaceId: testWorkspaceId },
+    });
+
+    await prisma.workspace.deleteMany({
+      where: { id: testWorkspaceId },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
   it("returns error when no vote ID is provided", async () => {
     const actionWithoutValue = {
       ...mockAction,
@@ -32,21 +128,61 @@ describe("handleEndVote", () => {
     const response = await handleEndVote(
       actionWithoutValue,
       mockPayload,
-      "workspace-123",
+      testWorkspaceId,
     );
 
     assertEquals(response.status, 200);
     assertStringIncludes(response.body.text || "", "No vote ID was provided");
   });
 
-  // // Tests that exercise the error paths in the controller
-  // it("handles database errors gracefully", async () => {
-  //   // Since we're not mocking anything, this will try to hit the real DB and fail
-  //   // This tests the error handling path
-  //   const response = await handleEndVote(mockAction, mockPayload, "workspace-123");
+  it("returns error when user is not the vote creator", async () => {
+    // Create payload with a different user
+    const nonCreatorPayload = {
+      ...mockPayload,
+      user: { id: testOtherUserId },
+    };
 
-  //   assertEquals(response.status, 200);
-  //   // The error message changes depending on the environment, so we check for status code only
-  //   assertEquals(response.status, 200);
-  // });
+    const response = await handleEndVote(
+      mockAction,
+      nonCreatorPayload,
+      testWorkspaceId,
+    );
+
+    assertEquals(response.status, 200);
+    assertStringIncludes(response.body.text || "", "Only the creator of the vote can end it");
+  });
+
+  it("successfully ends vote when called by creator", async () => {
+    const response = await handleEndVote(
+      mockAction,
+      mockPayload,
+      testWorkspaceId,
+    );
+
+    assertEquals(response.status, 200);
+    assertStringIncludes(response.body.text || "", "has been ended");
+
+    // Verify vote was marked as ended in database
+    const vote = await votesService.getVoteById(testVoteId);
+    assertEquals(vote.isEnded, true);
+  });
+
+  it("returns error for non-existent vote", async () => {
+    // Create a valid UUID that doesn't exist in the database
+    const nonExistentId = crypto.randomUUID();
+    const nonExistentAction = {
+      ...mockAction,
+      value: `end_${nonExistentId}`,
+    };
+
+    const response = await handleEndVote(
+      nonExistentAction,
+      mockPayload,
+      testWorkspaceId,
+    );
+
+    assertEquals(response.status, 200);
+    // Just verify we got an error response with some text
+    assertEquals(typeof response.body.text, "string");
+  });
 });

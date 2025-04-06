@@ -127,7 +127,13 @@ export class VotesService {
     const vote = await this.db.vote.findUnique({
       where: { id: voteId },
       include: {
-        responses: true,
+        responses: {
+          select: {
+            optionIndex: true,
+            credits: true,
+            userId: true,
+          },
+        },
       },
     });
 
@@ -135,23 +141,32 @@ export class VotesService {
       throw new NotFoundError("Vote not found");
     }
 
-    // Group by options and sum credits
-    const results = [];
     const options = vote.options as string[];
 
-    for (let i = 0; i < options.length; i++) {
-      const optionResponses = vote.responses.filter((r) => r.optionIndex === i);
-      const totalCredits = optionResponses.reduce(
-        (sum, r) => sum + r.credits,
-        0,
-      );
+    // Use Prisma's groupBy to aggregate vote responses by option
+    const responseAggregations = await this.db.voteResponse.groupBy({
+      by: ["optionIndex"],
+      where: {
+        voteId: voteId,
+      },
+      _sum: {
+        credits: true,
+      },
+      _count: {
+        userId: true,
+      },
+    });
 
-      results.push({
-        option: options[i],
-        totalCredits,
-        votes: optionResponses.length,
-      });
-    }
+    // Create results array with all options (even those with no votes)
+    const results = options.map((option, index) => {
+      const aggregation = responseAggregations.find((r) => r.optionIndex === index);
+
+      return {
+        option: option,
+        totalCredits: aggregation?._sum.credits || 0,
+        votes: aggregation?._count.userId || 0,
+      };
+    });
 
     // Sort by total credits descending
     results.sort((a, b) => b.totalCredits - a.totalCredits);
