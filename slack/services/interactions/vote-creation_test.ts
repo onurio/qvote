@@ -62,10 +62,7 @@ describe(
         );
 
         assertEquals(response.status, 200);
-        assertStringIncludes(
-          response.body.text || "",
-          "Workspace not found or authentication error",
-        );
+        assertStringIncludes(response.body.text || "", "not found.");
       });
 
       it("successfully opens the vote creation modal", async () => {
@@ -385,35 +382,24 @@ describe(
       });
 
       it("handles errors when workspace token is not found", async () => {
-        // Mock the database methods to simulate vote creation working but workspace token failing
-        const originalGetWorkspaceToken = workspaceService.getWorkspaceToken;
-        workspaceService.getWorkspaceToken = () => Promise.resolve(null);
+        // Valid submission
+        const validSubmission = createMockSubmission({
+          title: "Test Vote with Workspace Token Error",
+        });
 
-        try {
-          // Valid submission
-          const validSubmission = createMockSubmission({
-            title: "Test Vote with Workspace Token Error",
-          });
+        const nonExistentWorkspaceId = crypto.randomUUID();
 
-          const response = await handleCreateVoteSubmission(
-            validSubmission,
-            workspaceId, // Use valid workspace ID but the mock will return null token
-          );
+        const response = await handleCreateVoteSubmission(
+          validSubmission,
+          nonExistentWorkspaceId,
+        );
 
-          assertEquals(response.status, 200);
-          assertEquals(
-            typeof response.body.text,
-            "string",
-            "Response body should have a text property",
-          );
-          assertStringIncludes(
-            response.body.text as string,
-            "Workspace not found or authentication error",
-          );
-        } finally {
-          // Restore original method
-          workspaceService.getWorkspaceToken = originalGetWorkspaceToken;
-        }
+        assertEquals(response.status, 200);
+        assertEquals(
+          typeof response.body.errors,
+          "object",
+          "Response body should have a errors property",
+        );
       });
 
       it("creates vote even if channel message fails", async () => {

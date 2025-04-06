@@ -42,12 +42,6 @@ export async function checkAndAutoEndVote(
       const workspaceToken = await workspaceService.getWorkspaceToken(
         vote.workspaceId,
       );
-      if (!workspaceToken) {
-        logger.warn("Could not get workspace token for vote message update", {
-          voteId: vote.id,
-        });
-        return;
-      }
 
       // Update UI message
       await updateVoteMessage(vote, workspaceToken);

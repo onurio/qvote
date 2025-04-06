@@ -4,6 +4,7 @@ import { createVotingModalView } from "./templates.ts";
 import logger from "@utils/logger.ts";
 import { votesService, workspaceService } from "@db/prisma.ts";
 import { createErrorResponse } from "@slack/services/interactions/vote-utils.ts";
+import { NotFoundError } from "@db/errors.ts";
 
 // Handle opening the vote modal
 export async function handleOpenVoteModal(
@@ -25,10 +26,6 @@ export async function handleOpenVoteModal(
     // Get the vote from the database
     const vote = await votesService.getVoteById(voteId);
 
-    if (!vote) {
-      return createErrorResponse("Vote not found.", "Not Found");
-    }
-
     // Check if the vote has ended
     if (vote.isEnded) {
       return createErrorResponse(
@@ -41,12 +38,6 @@ export async function handleOpenVoteModal(
     const workspaceToken = await workspaceService.getWorkspaceToken(
       workspaceId,
     );
-    if (!workspaceToken) {
-      return createErrorResponse(
-        "Workspace not found or authentication error.",
-        "Authentication Error",
-      );
-    }
 
     // Create the voting modal view using the template
     // Get any previous votes by this user
@@ -105,6 +96,11 @@ export async function handleOpenVoteModal(
     };
   } catch (error) {
     logger.error("Error opening vote modal", error);
+
+    if (error instanceof NotFoundError) {
+      return createErrorResponse(error.message, "Not Found");
+    }
+
     return createErrorResponse(
       `Error opening vote modal: ${error instanceof Error ? error.message : String(error)}`,
       "Modal Error",

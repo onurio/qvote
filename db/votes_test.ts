@@ -1,178 +1,166 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import { VotesService } from "./votes.ts";
 // @ts-types="generated/index.d.ts"
 import { PrismaClient } from "generated/index.js";
+import { NotFoundError } from "@db/errors.ts";
+import { afterAll, beforeAll, describe, it } from "jsr:@std/testing/bdd";
 
-// Mock vote data
-const mockVoteData = {
-  id: "vote-123",
-  workspaceId: "workspace-123",
-  channelId: "channel-123",
-  creatorId: "creator-123",
-  title: "Test Vote",
-  description: "This is a test vote",
-  options: ["Option 1", "Option 2", "Option 3"],
-  allowedVoters: null,
-  creditsPerUser: 100,
-  endTime: null,
-  isEnded: false,
-  startTime: new Date(),
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  responses: [],
-};
+describe(
+  "VotesService",
+  { sanitizeOps: false, sanitizeResources: false },
+  () => {
+    const db = new PrismaClient();
+    const votesService = new VotesService(db);
 
-const mockVoteResponses = [
-  {
-    id: "response-1",
-    voteId: "vote-123",
-    userId: "user-1",
-    optionIndex: 0,
-    credits: 16, // 4 votes
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: "response-2",
-    voteId: "vote-123",
-    userId: "user-2",
-    optionIndex: 1,
-    credits: 25, // 5 votes
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: "response-3",
-    voteId: "vote-123",
-    userId: "user-3",
-    optionIndex: 0,
-    credits: 9, // 3 votes
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-];
+    const testWorkspaceId = "aaaaaaaa-bbbb-cccc-dddd-000000000001";
+    const testChannelId = "C12345678";
+    const testUserId1 = "U12345678";
+    const testUserId2 = "U87654321";
 
-// Create a typed mock for the Prisma client
-// This is a type-safe approach to mocking the Prisma client
-const mockPrismaClient = {
-  vote: {
-    create: (data: Record<string, unknown>) => ({
-      ...mockVoteData,
-      ...((data.data as Record<string, unknown>) || {}),
-    }),
-    findUnique: () => ({
-      ...mockVoteData,
-      responses: mockVoteResponses,
-    }),
-    update: (data: Record<string, unknown>) => ({
-      ...mockVoteData,
-      ...((data.data as Record<string, unknown>) || {}),
-      isEnded: true,
-    }),
-    findMany: () => [mockVoteData],
-  },
-  voteResponse: {
-    upsert: (data: Record<string, unknown>) => ({
-      id: `response-${data.optionIndex}`,
-      ...((data.create as Record<string, unknown>) || {}),
-    }),
-  },
-};
+    beforeAll(async () => {
+      // Delete any existing workspace with this ID
+      await db.workspace.deleteMany({
+        where: { id: testWorkspaceId },
+      });
 
-// Create an instance of the VotesService with the mock client
-const votesService = new VotesService(
-  mockPrismaClient as unknown as PrismaClient,
-);
-
-Deno.test({
-  name: "createVote creates a new vote",
-  fn: async () => {
-    const result = await votesService.createVote({
-      workspaceId: "workspace-123",
-      channelId: "channel-123",
-      creatorId: "creator-123",
-      title: "Test Vote",
-      description: "This is a test vote",
-      options: ["Option 1", "Option 2", "Option 3"],
+      // Create the test workspace
+      await db.workspace.create({
+        data: {
+          id: testWorkspaceId,
+          teamId: "T12345679",
+          teamName: "Test Team",
+          accessToken: "xoxb-test-token",
+          botUserId: "B12345678",
+        },
+      });
     });
 
-    // Verify result
-    assertEquals(result.title, "Test Vote");
-    assertEquals(result.description, "This is a test vote");
-    assertEquals(result.options, ["Option 1", "Option 2", "Option 3"]);
-    assertEquals(result.creditsPerUser, 100); // Default value
-    assertEquals(result.isEnded, false); // Default value
+    afterAll(async () => {
+      // Clean up all test data
+      await db.voteResponse.deleteMany();
+      await db.vote.deleteMany();
+      await db.workspace.deleteMany();
+      await db.$disconnect();
+    });
+
+    it("createVote creates a new vote", async () => {
+      const result = await votesService.createVote({
+        workspaceId: testWorkspaceId,
+        channelId: testChannelId,
+        creatorId: testUserId1,
+        title: "Test Vote",
+        description: "This is a test vote",
+        options: ["Option 1", "Option 2", "Option 3"],
+      });
+
+      assertEquals(result.title, "Test Vote");
+      assertEquals(result.description, "This is a test vote");
+      assertEquals(result.options, ["Option 1", "Option 2", "Option 3"]);
+      assertEquals(result.creditsPerUser, 100);
+      assertEquals(result.isEnded, false);
+    });
+
+    it("getVoteById returns a vote and throws when not found", async () => {
+      const vote = await votesService.createVote({
+        workspaceId: testWorkspaceId,
+        channelId: testChannelId,
+        creatorId: testUserId1,
+        title: "Test Vote",
+        description: "This is a test vote",
+        options: ["Option 1", "Option 2", "Option 3"],
+      });
+
+      const result = await votesService.getVoteById(vote.id);
+
+      assertEquals(result.id, vote.id);
+      assertEquals(result.title, "Test Vote");
+      assertEquals((result.options as string[]).length, 3);
+
+      await assertRejects(
+        async () => await votesService.getVoteById("nonexistent-id"),
+        NotFoundError,
+        "Vote with ID nonexistent-id not found",
+      );
+    });
+
+    it("endVote sets isEnded to true", async () => {
+      const vote = await votesService.createVote({
+        workspaceId: testWorkspaceId,
+        channelId: testChannelId,
+        creatorId: testUserId1,
+        title: "Vote to End",
+        description: "This is a test vote that we'll end",
+        options: ["Option 1", "Option 2"],
+      });
+
+      const result = await votesService.endVote(vote.id);
+
+      assertEquals(result.isEnded, true);
+      assertEquals(result.id, vote.id);
+
+      const updatedVote = await votesService.getVoteById(vote.id);
+      assertEquals(updatedVote.isEnded, true);
+    });
+
+    it("getVoteResults calculates quadratic voting results correctly", async () => {
+      const vote = await votesService.createVote({
+        workspaceId: testWorkspaceId,
+        channelId: testChannelId,
+        creatorId: testUserId1,
+        title: "Voting Results Test",
+        description: "Testing vote results calculation",
+        options: ["Option A", "Option B", "Option C"],
+      });
+
+      await votesService.recordVoteResponse(vote.id, testUserId1, 0, 16);
+      await votesService.recordVoteResponse(vote.id, testUserId2, 1, 25);
+      await votesService.recordVoteResponse(vote.id, "U99999999", 0, 9);
+
+      const result = await votesService.getVoteResults(vote.id);
+
+      assertEquals(result.vote.id, vote.id);
+      assertEquals(result.vote.title, "Voting Results Test");
+      assertEquals(result.results.length, 3);
+
+      const optionA = result.results.find((r) => r.option === "Option A");
+      const optionB = result.results.find((r) => r.option === "Option B");
+      const optionC = result.results.find((r) => r.option === "Option C");
+
+      assertEquals(optionA?.totalCredits, 25);
+      assertEquals(optionB?.totalCredits, 25);
+      assertEquals(optionC?.totalCredits, 0);
+
+      assertEquals(result.results[2].totalCredits, 0);
+    });
+
+    it("recordVoteResponse stores user votes correctly", async () => {
+      const vote = await votesService.createVote({
+        workspaceId: testWorkspaceId,
+        channelId: testChannelId,
+        creatorId: testUserId1,
+        title: "Vote Response Test",
+        description: "Testing vote responses",
+        options: ["Option X", "Option Y"],
+      });
+
+      const result = await votesService.recordVoteResponse(
+        vote.id,
+        "test-user-id",
+        1,
+        36,
+      );
+
+      assertEquals(result.voteId, vote.id);
+      assertEquals(result.userId, "test-user-id");
+      assertEquals(result.optionIndex, 1);
+      assertEquals(result.credits, 36);
+
+      const voteWithResponses = await votesService.getVoteById(vote.id);
+      const response = voteWithResponses.responses.find(
+        (r) => r.userId === "test-user-id" && r.optionIndex === 1,
+      );
+
+      assertEquals(response?.credits, 36);
+    });
   },
-});
-
-Deno.test({
-  name: "getVoteById returns a vote with responses",
-  fn: async () => {
-    const result = await votesService.getVoteById("vote-123");
-
-    // Verify result
-    assertEquals(result?.id, "vote-123");
-    assertEquals(result?.title, "Test Vote");
-    assertEquals(result?.responses.length, 3);
-  },
-});
-
-Deno.test({
-  name: "endVote sets isEnded to true",
-  fn: async () => {
-    const result = await votesService.endVote("vote-123");
-
-    // Verify result
-    assertEquals(result.isEnded, true);
-    assertEquals(result.id, "vote-123");
-  },
-});
-
-Deno.test({
-  name: "getVoteResults calculates quadratic voting results correctly",
-  fn: async () => {
-    const result = await votesService.getVoteResults("vote-123");
-
-    // Verify vote details
-    assertEquals(result.vote.id, "vote-123");
-    assertEquals(result.vote.title, "Test Vote");
-
-    // Verify results are calculated and sorted correctly
-    assertEquals(result.results.length, 3);
-
-    // Total credits should be 25 and 25 for the two options with votes
-    // The result array is sorted by totalCredits, so we'll check both options
-    // We have to be less specific about the order since it can vary
-    const hasOption1 = result.results.some(
-      (r) => r.option === "Option 1" && r.totalCredits === 25,
-    );
-    const hasOption2 = result.results.some(
-      (r) => r.option === "Option 2" && r.totalCredits === 25,
-    );
-    assertEquals(hasOption1, true, "Should have Option 1 with 25 credits");
-    assertEquals(hasOption2, true, "Should have Option 2 with 25 credits");
-
-    // Option 3 should have 0 total credits (0 votes)
-    // We know it will be last in the sorted array
-    assertEquals(result.results[2].option, "Option 3");
-    assertEquals(result.results[2].totalCredits, 0);
-  },
-});
-
-Deno.test({
-  name: "recordVoteResponse stores user votes correctly",
-  fn: async () => {
-    const result = await votesService.recordVoteResponse(
-      "vote-123",
-      "user-1",
-      1,
-      36,
-    );
-
-    // Verify result
-    assertEquals(result.voteId, "vote-123");
-    assertEquals(result.userId, "user-1");
-    assertEquals(result.optionIndex, 1);
-    assertEquals(result.credits, 36);
-  },
-});
+);

@@ -5,35 +5,7 @@ import { votesService } from "@db/prisma.ts";
 // @ts-types="generated/index.d.ts"
 import { Vote } from "generated/index.js";
 import { createErrorResponse } from "@slack/services/interactions/vote-utils.ts";
-
-// Custom error types
-class VoteError extends Error {
-  constructor(message: string, public responseAction: string = "errors") {
-    super(message);
-  }
-}
-
-class NotFoundError extends VoteError {
-  override name: string;
-  constructor(message: string) {
-    super(message, "ephemeral");
-    this.name = "NotFoundError";
-  }
-}
-class UnauthorizedError extends VoteError {
-  override name: string;
-  constructor(message: string) {
-    super(message, "errors");
-    this.name = "UnauthorizedError";
-  }
-}
-class ValidationError extends VoteError {
-  override name: string;
-  constructor(message: string) {
-    super(message, "errors");
-    this.name = "ValidationError";
-  }
-}
+import { NotFoundError, UnauthorizedError, ValidationError, VoteError } from "@db/errors.ts";
 
 // Validation functions
 const validateMetadata = (metadata: Record<string, unknown>): string => {

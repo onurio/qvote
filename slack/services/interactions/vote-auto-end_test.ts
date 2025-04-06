@@ -78,19 +78,9 @@ describe(
 
     afterAll(async () => {
       // Clean up any remaining test data
-      await prisma.vote.deleteMany({
-        where: { workspaceId: testWorkspaceId },
-      });
-      await prisma.workspace.deleteMany({
-        where: { id: testWorkspaceId },
-      });
-      await prisma.voteResponse.deleteMany({
-        where: {
-          vote: {
-            workspaceId: testWorkspaceId,
-          },
-        },
-      });
+      await prisma.vote.deleteMany();
+      await prisma.workspace.deleteMany();
+      await prisma.voteResponse.deleteMany();
 
       await prisma.$disconnect();
     });

@@ -14,6 +14,11 @@ export async function handleCreateVoteSubmission(
   try {
     logger.info("Handling vote creation submission");
 
+    // Get the token to post a message to the channel
+    const workspaceToken = await workspaceService.getWorkspaceToken(
+      workspaceId,
+    );
+
     // Extract values from the submission
     const state = payload.view!.state.values;
     logger.debug("Submission state", state);
@@ -146,17 +151,6 @@ export async function handleCreateVoteSubmission(
 
     logger.info("Vote created successfully", { voteId: vote.id });
 
-    // Get the token to post a message to the channel
-    const workspaceToken = await workspaceService.getWorkspaceToken(
-      workspaceId,
-    );
-    if (!workspaceToken) {
-      return createErrorResponse(
-        "Workspace not found or authentication error.",
-        "Authentication Error",
-      );
-    }
-
     // Create the blocks for the vote message
     const blocks = JSON.stringify(createVoteBlocks(vote, ""));
 
@@ -271,12 +265,6 @@ export async function openVoteCreationModal(
     const workspaceToken = await workspaceService.getWorkspaceToken(
       workspaceId,
     );
-    if (!workspaceToken) {
-      return createErrorResponse(
-        "Workspace not found or authentication error.",
-        "Authentication Error",
-      );
-    }
 
     // Create the modal view using the template
     const view = createVoteCreationModalView(channelId, userId);
@@ -312,7 +300,7 @@ export async function openVoteCreationModal(
       body: {},
     };
   } catch (error) {
-    logger.error("Error opening vote creation modal", error);
+    logger.error("Error opening vote creation modal", typeof error);
     return createErrorResponse(
       `Error opening vote creation modal: ${
         error instanceof Error ? error.message : String(error)

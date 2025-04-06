@@ -1,6 +1,8 @@
 // @ts-types="generated/index.d.ts"
 import { PrismaClient } from "generated/index.js";
 import logger from "@utils/logger.ts";
+import { WorkspaceNotFoundError } from "@db/errors.ts";
+import { PrismaKnownRequestError } from "@prisma/client/runtime";
 
 export class WorkspaceService {
   private db: PrismaClient;
@@ -66,15 +68,23 @@ export class WorkspaceService {
     }
   }
 
-  async getWorkspaceToken(workspaceId: string): Promise<string | null> {
+  async getWorkspaceToken(workspaceId: string): Promise<string> {
     try {
-      const workspace = await this.db.workspace.findUnique({
+      const workspace = await this.db.workspace.findUniqueOrThrow({
         where: { id: workspaceId },
       });
-      return workspace?.accessToken || null;
-    } catch (error) {
-      logger.error("Error getting workspace token", error);
-      return null;
+      return workspace.accessToken;
+    } catch (error: PrismaKnownRequestError) {
+      if (error.code === "P2025") {
+        // Record not found
+        throw new WorkspaceNotFoundError(
+          `Workspace with ID ${workspaceId} not found.`,
+        );
+      }
+      logger.error(
+        `Error fetching workspace token for ID ${workspaceId}: ${error}`,
+      );
+      throw new Error(`Error fetching workspace token`);
     }
   }
 }

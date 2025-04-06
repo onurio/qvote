@@ -1,5 +1,6 @@
 // @ts-types="generated/index.d.ts"
 import { PrismaClient } from "generated/index.js";
+import { NotFoundError } from "@db/errors.ts";
 
 // Interface for vote creation parameters
 export interface CreateVoteParams {
@@ -56,14 +57,18 @@ export class VotesService {
     return result;
   }
 
-  // Get a vote by ID
+  // Get a vote by ID or throw if not found
   async getVoteById(id: string) {
-    return await this.db.vote.findUnique({
-      where: { id },
-      include: {
-        responses: true,
-      },
-    });
+    try {
+      return await this.db.vote.findUniqueOrThrow({
+        where: { id },
+        include: {
+          responses: true,
+        },
+      });
+    } catch (_error) {
+      throw new NotFoundError(`Vote with ID ${id} not found`);
+    }
   }
 
   // Get all votes for a workspace
@@ -127,7 +132,7 @@ export class VotesService {
     });
 
     if (!vote) {
-      throw new Error("Vote not found");
+      throw new NotFoundError("Vote not found");
     }
 
     // Group by options and sum credits
@@ -136,7 +141,10 @@ export class VotesService {
 
     for (let i = 0; i < options.length; i++) {
       const optionResponses = vote.responses.filter((r) => r.optionIndex === i);
-      const totalCredits = optionResponses.reduce((sum, r) => sum + r.credits, 0);
+      const totalCredits = optionResponses.reduce(
+        (sum, r) => sum + r.credits,
+        0,
+      );
 
       results.push({
         option: options[i],

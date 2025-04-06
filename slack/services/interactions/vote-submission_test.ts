@@ -123,7 +123,7 @@ describe(
       const response = await handleVoteSubmission(payload);
 
       assertEquals(response.status, 200);
-      assertStringIncludes(response.body.text || "", "Vote not found");
+      assertStringIncludes(response.body.text || "", "not found");
     });
 
     it("returns error when user is not allowed to vote", async () => {

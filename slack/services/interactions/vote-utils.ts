@@ -4,6 +4,7 @@ import { createErrorMessageBlocks } from "../blocks.ts";
 import logger from "@utils/logger.ts";
 import { Vote } from "generated/index.d.ts";
 import { votesService } from "@db/prisma.ts";
+import { NotFoundError } from "@db/errors.ts";
 
 // Define VoteResult type to make it shareable
 export interface VoteResult {
@@ -180,9 +181,6 @@ export async function updateVoteMessage(
   try {
     // Get updated vote with current state
     const updatedVote = await votesService.getVoteById(vote.id);
-    if (!updatedVote) {
-      return;
-    }
 
     const voteMessage = await findVoteMessageInChannel(vote, workspaceToken);
     if (!voteMessage) {
@@ -196,6 +194,10 @@ export async function updateVoteMessage(
       workspaceToken,
     );
   } catch (error) {
+    if (error instanceof NotFoundError) {
+      logger.warn("Vote not found when trying to update message", { voteId: vote.id });
+      return;
+    }
     logger.error("Error updating vote message", error);
   }
 }

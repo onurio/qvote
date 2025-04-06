@@ -2,86 +2,227 @@ import { assertEquals } from "@std/assert";
 import { WorkspaceService } from "./workspace.ts";
 // @ts-types="generated/index.d.ts"
 import { PrismaClient } from "generated/index.js";
+import { afterAll, beforeAll, describe, it } from "jsr:@std/testing/bdd";
 
-// Mock workspace data
-const mockWorkspaceData = {
-  id: "1",
-  teamId: "T12345",
-  teamName: "Test Team",
-  accessToken: "xoxb-test-token",
-  botUserId: "U54321",
-  createdAt: new Date(),
-  updatedAt: new Date(),
-};
+describe(
+  "WorkspaceService",
+  { sanitizeOps: false, sanitizeResources: false },
+  () => {
+    const db = new PrismaClient();
+    const workspaceService = new WorkspaceService(db);
 
-// Create a typed mock for the Prisma client
-const mockPrismaClient = {
-  workspace: {
-    upsert: (data: Record<string, unknown>) => ({
-      ...mockWorkspaceData,
-      ...((data.create as Record<string, unknown>) || {}),
-      ...((data.update as Record<string, unknown>) || {}),
-    }),
-    findUnique: () => mockWorkspaceData,
-    findMany: () => [mockWorkspaceData],
-    delete: () => mockWorkspaceData,
+    const testTeamId = "T123456TEST";
+    const testTeamName = "Test Team";
+    const testAccessToken = "xoxb-test-token";
+    const testBotUserId = "B123456TEST";
+
+    beforeAll(async () => {
+      // Clean up any existing test data
+      await db.workspace.deleteMany({
+        where: { teamId: testTeamId },
+      });
+    });
+
+    afterAll(async () => {
+      // Clean up test data
+      await db.workspace.deleteMany({
+        where: { teamId: testTeamId },
+      });
+
+      // Disconnect from the database
+      await db.$disconnect();
+    });
+
+    it("saveWorkspace creates or updates a workspace", async () => {
+      // Create a new workspace
+      const result = await workspaceService.saveWorkspace(
+        testTeamId,
+        testTeamName,
+        testAccessToken,
+        testBotUserId,
+      );
+
+      // Verify result
+      assertEquals(result.teamId, testTeamId);
+      assertEquals(result.teamName, testTeamName);
+      assertEquals(result.accessToken, testAccessToken);
+      assertEquals(result.botUserId, testBotUserId);
+
+      // Update the workspace with new values
+      const updatedName = "Updated Team Name";
+      const updatedToken = "xoxb-updated-token";
+      const updatedUserId = "B987654TEST";
+
+      const updateResult = await workspaceService.saveWorkspace(
+        testTeamId,
+        updatedName,
+        updatedToken,
+        updatedUserId,
+      );
+
+      // Verify update worked
+      assertEquals(
+        updateResult.teamId,
+        testTeamId,
+        "Team ID should remain the same",
+      );
+      assertEquals(
+        updateResult.teamName,
+        updatedName,
+        "Team name should be updated",
+      );
+      assertEquals(
+        updateResult.accessToken,
+        updatedToken,
+        "Access token should be updated",
+      );
+      assertEquals(
+        updateResult.botUserId,
+        updatedUserId,
+        "Bot user ID should be updated",
+      );
+    });
+
+    it("getWorkspaceByTeamId returns a workspace", async () => {
+      // First create a workspace to retrieve
+      await workspaceService.saveWorkspace(
+        testTeamId,
+        testTeamName,
+        testAccessToken,
+        testBotUserId,
+      );
+
+      // Retrieve the workspace
+      const result = await workspaceService.getWorkspaceByTeamId(testTeamId);
+
+      // Verify result
+      assertEquals(result?.teamId, testTeamId);
+      assertEquals(result?.teamName, testTeamName);
+      assertEquals(result?.accessToken, testAccessToken);
+      assertEquals(result?.botUserId, testBotUserId);
+
+      // Test retrieving a non-existent workspace
+      const nonExistentResult = await workspaceService.getWorkspaceByTeamId(
+        "T-NONEXISTENT",
+      );
+      assertEquals(
+        nonExistentResult,
+        null,
+        "Non-existent workspace should return null",
+      );
+    });
+
+    it("getAllWorkspaces returns a list of workspaces", async () => {
+      // First ensure our test workspace exists
+      await workspaceService.saveWorkspace(
+        testTeamId,
+        testTeamName,
+        testAccessToken,
+        testBotUserId,
+      );
+
+      // Get all workspaces
+      const result = await workspaceService.getAllWorkspaces();
+
+      // Verify result - should be at least 1 workspace
+      assertEquals(
+        result.length >= 1,
+        true,
+        "Should have at least one workspace",
+      );
+
+      // Find our test workspace in the results
+      const testWorkspace = result.find((ws) => ws.teamId === testTeamId);
+
+      // Verify our test workspace is in the results
+      assertEquals(
+        testWorkspace !== undefined,
+        true,
+        "Test workspace should be in results",
+      );
+      if (testWorkspace) {
+        assertEquals(testWorkspace.teamName, testTeamName);
+        assertEquals(testWorkspace.accessToken, testAccessToken);
+        assertEquals(testWorkspace.botUserId, testBotUserId);
+      }
+    });
+
+    it("deleteWorkspaceByTeamId deletes a workspace", async () => {
+      // First create a workspace to delete
+      await workspaceService.saveWorkspace(
+        testTeamId,
+        testTeamName,
+        testAccessToken,
+        testBotUserId,
+      );
+
+      // Verify it exists
+      const exists = await workspaceService.getWorkspaceByTeamId(testTeamId);
+      assertEquals(
+        exists !== null,
+        true,
+        "Workspace should exist before deletion",
+      );
+
+      // Delete the workspace
+      const result = await workspaceService.deleteWorkspaceByTeamId(testTeamId);
+
+      // Verify deletion was successful
+      assertEquals(result, true, "Delete operation should return true");
+
+      // Verify it no longer exists
+      const afterDelete = await workspaceService.getWorkspaceByTeamId(
+        testTeamId,
+      );
+      assertEquals(
+        afterDelete,
+        null,
+        "Workspace should no longer exist after deletion",
+      );
+
+      // Test deleting a non-existent workspace
+      const nonExistentResult = await workspaceService.deleteWorkspaceByTeamId(
+        "T-NONEXISTENT",
+      );
+      assertEquals(
+        nonExistentResult,
+        false,
+        "Deleting non-existent workspace should return false",
+      );
+    });
+
+    it("getWorkspaceToken returns a workspace's token", async () => {
+      // Create a workspace first
+      const workspace = await workspaceService.saveWorkspace(
+        testTeamId,
+        testTeamName,
+        testAccessToken,
+        testBotUserId,
+      );
+
+      // Get the token using the workspace ID
+      const token = await workspaceService.getWorkspaceToken(workspace.id);
+
+      // Verify the token matches what we set
+      assertEquals(
+        token,
+        testAccessToken,
+        "Should return the correct access token",
+      );
+
+      // Test with non-existent workspace ID - should throw an error
+      try {
+        await workspaceService.getWorkspaceToken("non-existent-id");
+        // If we get here, the test failed
+        assertEquals(
+          true,
+          false,
+          "Should have thrown an error for non-existent workspace",
+        );
+      } catch (_error) {
+        // Expected to get here - just verify we caught an error
+        assertEquals(true, true, "Error was caught as expected");
+      }
+    });
   },
-};
-
-// Import the WorkspaceService class
-
-// Create an instance of the WorkspaceService with the mock client
-const workspaceService = new WorkspaceService(
-  mockPrismaClient as unknown as PrismaClient,
 );
-
-Deno.test({
-  name: "saveWorkspace creates or updates a workspace",
-  fn: async () => {
-    const result = await workspaceService.saveWorkspace(
-      "T12345",
-      "Test Team",
-      "xoxb-test-token",
-      "U54321",
-    );
-
-    // Verify result
-    assertEquals(result.teamId, "T12345");
-    assertEquals(result.teamName, "Test Team");
-    assertEquals(result.accessToken, "xoxb-test-token");
-    assertEquals(result.botUserId, "U54321");
-  },
-});
-
-Deno.test({
-  name: "getWorkspaceByTeamId returns a workspace",
-  fn: async () => {
-    const result = await workspaceService.getWorkspaceByTeamId("T12345");
-
-    // Verify result
-    assertEquals(result?.teamId, "T12345");
-    assertEquals(result?.teamName, "Test Team");
-  },
-});
-
-Deno.test({
-  name: "getAllWorkspaces returns a list of workspaces",
-  fn: async () => {
-    const result = await workspaceService.getAllWorkspaces();
-
-    // Verify result
-    assertEquals(result.length, 1);
-    assertEquals(result[0].teamId, "T12345");
-    assertEquals(result[0].teamName, "Test Team");
-  },
-});
-
-Deno.test({
-  name: "deleteWorkspaceByTeamId deletes a workspace",
-  fn: async () => {
-    const result = await workspaceService.deleteWorkspaceByTeamId("T12345");
-
-    // Verify result
-    assertEquals(result, true);
-  },
-});

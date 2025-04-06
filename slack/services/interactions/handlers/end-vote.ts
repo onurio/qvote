@@ -23,10 +23,6 @@ export async function handleEndVote(
     // Get the vote from the database
     const vote = await votesService.getVoteById(voteId);
 
-    if (!vote) {
-      return createErrorResponse("Vote not found.", "Not Found");
-    }
-
     // Check if the user is the creator of the vote
     if (vote.creatorId !== payload.user.id) {
       return createErrorResponse(
@@ -45,12 +41,6 @@ export async function handleEndVote(
     const workspaceToken = await workspaceService.getWorkspaceToken(
       workspaceId,
     );
-    if (!workspaceToken) {
-      return createErrorResponse(
-        "Workspace not found or authentication error.",
-        "Authentication Error",
-      );
-    }
 
     await updateOriginalMessageAfterVoteEnd(
       results.vote,
