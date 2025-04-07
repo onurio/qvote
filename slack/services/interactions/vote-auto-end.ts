@@ -15,10 +15,7 @@ export async function checkAndAutoEndVote(
     // Get latest vote data with all responses
     const vote = await votesService.getVoteById(voteId);
 
-    if (!vote || vote.isEnded) {
-      // Vote not found or already ended
-      return;
-    }
+    if (vote.isEnded) return;
 
     // Check if there are allowed voters restrictions
     const allowedVoters = vote.allowedVoters as string[] | null;
