@@ -24,6 +24,6 @@ EXPOSE 8443
 # Set up environment variable for Deno to allow scripts
 ENV DENO_ALLOW_SCRIPTS=npm:@prisma/engines,npm:prisma,npm:@prisma/client
 
-# Run the application with Prisma scripts allowed
-CMD ["sh", "-c", "deno run --allow-net --allow-env --allow-read --allow-run --allow-ffi --allow-scripts=npm:@prisma/engines@6.4.1,npm:prisma@6.4.1,npm:@prisma/client@6.4.1 main.ts"]
+# First run Prisma migration, then start the application
+CMD ["sh", "-c", "deno task prisma:push && deno task start"]
 

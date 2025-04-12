@@ -48,14 +48,9 @@ services:
       - SLACK_REDIRECT_URI=${SLACK_REDIRECT_URI}
       - PORT=${PORT:-8080}
       - USE_HTTPS=${USE_HTTPS:-false}
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
-      - DB_NAME=${DB_NAME:-qvote}
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/qvote}
-    command: >
-      sh -c "deno task prisma:generate && deno run --inspect=0.0.0.0:9229 --allow-net --allow-env --allow-read --allow-run --allow-ffi --watch main.ts"
+    # command: >
+    #   sh -c "deno task prisma:generate && deno run --inspect=0.0.0.0:9229 --allow-net --allow-env --allow-read --allow-run --allow-ffi --watch main.ts"
     volumes:
       - .:/app
       - deno-cache:/home/deno/.cache/deno
