@@ -23,7 +23,7 @@ export const workspaceService = new WorkspaceService(prisma);
  * @param delay Delay between attempts in milliseconds
  * @returns Promise that resolves when connection is established
  */
-export async function connectToDatabase(retries = 1, delay = 5000) {
+export async function connectToDatabase(retries = 4, delay = 5000) {
   logger.info("Connecting to database...");
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
@@ -32,16 +32,16 @@ export async function connectToDatabase(retries = 1, delay = 5000) {
       const result = await prisma.$queryRaw<
         [{ connection_test: number }]
       >`SELECT 1 as connection_test`;
-      logger.info(
-        `Database connection successful`,
-        { status: result[0].connection_test === 1 },
-      );
+      logger.info(`Database connection successful`, {
+        status: result[0].connection_test === 1,
+      });
       return;
     } catch (error) {
       logger.error(
         `Database connection attempt ${attempt}/${retries} failed`,
         error,
       );
+      logger.error("DATABASE_URL:", Deno.env.get("DATABASE_URL"));
 
       if (attempt < retries) {
         logger.info(`Retrying in ${delay / 1000} seconds...`);
