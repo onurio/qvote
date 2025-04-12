@@ -13,8 +13,8 @@ RUN deno cache main.ts
 COPY . .
 
 # Expose the port
-EXPOSE 8080
+EXPOSE 8443
 
-# Run the application
-CMD ["task", "start"]
+# Generate Prisma client and run the application
+CMD ["sh", "-c", "deno task prisma:generate && deno task start"]
 
