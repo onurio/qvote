@@ -16,5 +16,5 @@ COPY . .
 EXPOSE 8443
 
 # Generate Prisma client and run the application
-CMD ["sh", "-c", "deno task prisma:generate && deno task start"]
+CMD ["sh", "-c", "deno task prisma:generate && deno run --allow-net --allow-env --allow-read --allow-run --allow-ffi --watch main.ts"]
 
