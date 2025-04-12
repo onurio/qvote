@@ -1,0 +1,27 @@
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/qvote:$COMMIT_SHA', '.']
+  
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/qvote:$COMMIT_SHA']
+  
+  # Deploy container image to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'qvote'
+      - '--image=gcr.io/$PROJECT_ID/qvote:$COMMIT_SHA'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--port=8443'
+      - '--set-env-vars=USE_HTTPS=false'
+      - '--set-env-vars=DB_PORT=5432'
+      # Database connection and other sensitive variables should be set up through Cloud Run secrets
+      
+images:
+  - 'gcr.io/$PROJECT_ID/qvote:$COMMIT_SHA'
