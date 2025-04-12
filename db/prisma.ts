@@ -41,7 +41,6 @@ export async function connectToDatabase(retries = 4, delay = 5000) {
         `Database connection attempt ${attempt}/${retries} failed`,
         error,
       );
-      logger.error("DATABASE_URL:", Deno.env.get("DATABASE_URL"));
 
       if (attempt < retries) {
         logger.info(`Retrying in ${delay / 1000} seconds...`);
