@@ -4,6 +4,8 @@ A Slack app for creating quadratic votes in your workspace. Quadratic voting is 
 decision-making procedure where participants express how strongly they feel about different issues
 by spending "voice credits" to influence the outcome.
 
+**Live App:** [qvote.omrinuri.com](https://qvote.omrinuri.com)
+
 ## Features
 
 - Create quadratic votes directly in Slack
