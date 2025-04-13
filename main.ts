@@ -5,7 +5,7 @@ import { load } from "@std/dotenv";
 import oauthRouter from "@oauth/routes.ts";
 import slackRouter from "@slack/routes.ts";
 import { closeDatabase, connectToDatabase } from "@db/prisma.ts";
-import { getHomePage } from "@ui/pages.ts";
+import { getHomePage, getPrivacyPolicyPage } from "@ui/pages.ts";
 import logger from "@utils/logger.ts";
 import { createSlackVerifier } from "@middleware/slack-verification.ts";
 
@@ -39,12 +39,51 @@ function setupServer() {
     ctx.response.body = await getHomePage();
   });
 
+  // Privacy policy route
+  router.get("/privacy-policy", async (ctx) => {
+    logger.info("Privacy policy page requested");
+    ctx.response.body = await getPrivacyPolicyPage();
+  });
+
   // Create app
   const app = new Application();
 
   // Add global middleware
   app.use(loggingMiddleware);
   app.use(errorHandlingMiddleware);
+
+  // Serve static files
+  app.use(async (ctx, next) => {
+    const path = ctx.request.url.pathname;
+    if (path.startsWith("/static/")) {
+      logger.info(`Serving static file: ${path}`);
+      const filePath = `.${path}`;
+      try {
+        const fileContent = await Deno.readFile(filePath);
+
+        // Set the appropriate content type based on file extension
+        const ext = path.split(".").pop()?.toLowerCase();
+        if (ext === "png") {
+          ctx.response.headers.set("Content-Type", "image/png");
+        } else if (ext === "jpg" || ext === "jpeg") {
+          ctx.response.headers.set("Content-Type", "image/jpeg");
+        } else if (ext === "css") {
+          ctx.response.headers.set("Content-Type", "text/css");
+        } else if (ext === "js") {
+          ctx.response.headers.set("Content-Type", "application/javascript");
+        }
+
+        ctx.response.body = fileContent;
+        return;
+      } catch (error) {
+        logger.error(`Error serving static file: ${filePath}`, error);
+        ctx.response.status = 404;
+        ctx.response.body = "File not found";
+        return;
+      }
+    }
+    await next();
+  });
 
   // Apply Slack verification to all Slack routes
   try {

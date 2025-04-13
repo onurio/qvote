@@ -3,15 +3,42 @@
  */
 
 /**
+ * Get the support email from environment variable or fallback to default
+ * @returns The support email address
+ */
+export function getSupportEmail(): string {
+  return Deno.env.get("SUPPORT_EMAIL") || "omrinuri@gmail.com";
+}
+
+/**
  * Loads the home page HTML content
  * @returns Promise with the HTML content of the home page
  */
 export async function getHomePage(): Promise<string> {
   try {
-    return await Deno.readTextFile("./static/home.html");
+    let html = await Deno.readTextFile("./static/home.html");
+    // Replace support email placeholder
+    html = html.replace(/support@example\.com/g, getSupportEmail());
+    return html;
   } catch (error) {
     console.error("Failed to read home page template:", error);
     return getDefaultHomePage();
+  }
+}
+
+/**
+ * Loads the privacy policy page HTML content
+ * @returns Promise with the HTML content of the privacy policy page
+ */
+export async function getPrivacyPolicyPage(): Promise<string> {
+  try {
+    let html = await Deno.readTextFile("./static/privacy-policy.html");
+    // Replace support email placeholder
+    html = html.replace(/support@example\.com/g, getSupportEmail());
+    return html;
+  } catch (error) {
+    console.error("Failed to read privacy policy template:", error);
+    return getDefaultPrivacyPolicyPage();
   }
 }
 
@@ -20,6 +47,7 @@ export async function getHomePage(): Promise<string> {
  * @returns Default home page HTML string
  */
 function getDefaultHomePage(): string {
+  const supportEmail = getSupportEmail();
   return `<!DOCTYPE html>
     <html>
       <head>
@@ -54,6 +82,25 @@ function getDefaultHomePage(): string {
           }
           .section {
             margin-top: 2rem;
+          }
+          .footer {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #eee;
+            font-size: 0.9rem;
+            color: #666;
+          }
+          .footer-links {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 1rem;
+          }
+          .footer-links a {
+            color: #555;
+            text-decoration: none;
+          }
+          .footer-links a:hover {
+            text-decoration: underline;
           }
         </style>
       </head>
@@ -93,6 +140,85 @@ function getDefaultHomePage(): string {
         <div class="section">
           <h2>About Quadratic Voting</h2>
           <p>Quadratic voting allows participants to express not just which options they prefer, but how strongly they feel about each one. By allocating voting credits across options, users can better express their preferences.</p>
+        </div>
+        
+        <footer class="footer">
+          <div class="footer-links">
+            <a href="/privacy-policy" id="privacy-policy">Privacy Policy</a>
+            <a href="mailto:${supportEmail}" id="support">Support</a>
+          </div>
+          <div>
+            &copy; 2025 QVote. All rights reserved.
+          </div>
+        </footer>
+      </body>
+    </html>
+  `;
+}
+
+/**
+ * Returns the default privacy policy HTML as a fallback
+ * @returns Default privacy policy HTML string
+ */
+function getDefaultPrivacyPolicyPage(): string {
+  const supportEmail = getSupportEmail();
+  return `<!DOCTYPE html>
+    <html>
+      <head>
+        <title>Privacy Policy - QVote</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            color: #333;
+          }
+          h1 {
+            color: #4A154B;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 1rem;
+          }
+          .footer {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #eee;
+            font-size: 0.9rem;
+            color: #666;
+          }
+          a {
+            color: #4A154B;
+          }
+          .button {
+            display: inline-block;
+            background-color: #4A154B;
+            color: white;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-weight: bold;
+          }
+          .button.secondary {
+            background-color: #f5f5f5;
+            color: #333;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Privacy Policy</h1>
+        <p>Last updated: April 12, 2025</p>
+        
+        <p>This Privacy Policy describes how QVote collects, uses, and discloses your information when you use our service.</p>
+        <p>We collect minimal information necessary to provide the service, including workspace IDs, user IDs, and voting data.</p>
+        <p>We do not sell your personal information.</p>
+        <p>If you have any questions about this Privacy Policy, please contact us at <a href="mailto:${supportEmail}">${supportEmail}</a>.</p>
+        
+        <div class="footer">
+          <p>
+            <a href="/" class="button secondary">Back to Home</a>
+          </p>
+          <p>&copy; 2025 QVote. All rights reserved.</p>
         </div>
       </body>
     </html>
