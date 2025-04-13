@@ -84,8 +84,8 @@ This will install a pre-commit hook that enforces:
 - Type checking
 - Test success
 - Minimum test coverage thresholds:
-  - Line coverage: 81%
-  - Branch coverage: 70%
+  - Line coverage: 80%
+  - Branch coverage: 80%
 
 #### Using Docker Compose
 
@@ -109,22 +109,7 @@ docker compose -f docker-compose.dev.yml up -d
 docker compose -f docker-compose.dev.yml logs -f
 ```
 
-The server will start at http://localhost:8080.
-
-## Development
-
-### Project Structure
-
-- `/` - Main server and application entry point
-- `/oauth/` - Slack OAuth integration
-- `/db/` - Database connection and models
-- `/prisma/` - Prisma schema and setup files
-- `/generated/` - Generated Prisma client (not committed to repo)
-- `/api/` - API endpoints for Slack interactions (future)
-- `/hooks/` - Git hooks for code quality and coverage enforcement
-- `Dockerfile` - Docker configuration for the application
-- `docker-compose.yml` - Production Docker Compose configuration
-- `docker-compose.dev.yml` - Development Docker Compose configuration with hot reload
+The server will start at http://localhost:8443.
 
 ### Database Schema
 
@@ -133,18 +118,6 @@ The application uses PostgreSQL with Prisma ORM. The schema is defined in `prism
 1. `Workspace` - Stores Slack workspace information and OAuth tokens
 2. `Vote` - Stores information about quadratic votes
 3. `VoteResponse` - Stores user responses to votes
-
-### How to Create a Slack App
-
-1. Go to https://api.slack.com/apps and click "Create New App"
-2. Choose "From scratch" and provide a name and workspace
-3. Under "OAuth & Permissions":
-   - Add the redirect URL: `http://localhost:8080/oauth/callback`
-   - Add the required scopes: `commands`, `chat:write`, `channels:read`
-4. Under "Slash Commands":
-   - Create a new command `/qvote` (implementation forthcoming)
-5. Install the app to your workspace
-6. Copy the Client ID and Client Secret to your `.env` file
 
 ## License
 
