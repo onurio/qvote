@@ -14,9 +14,12 @@ const createTestApp = () => {
   return app;
 };
 
-// Test auth URL
-const TEST_AUTH_URL =
-  "https://slack.com/oauth/v2/authorize?client_id=test_client_id&scope=commands%20chat:write%20channels:read%20channels:history&redirect_uri=http://localhost:8080/oauth/callback&state=test-uuid-123";
+// Test auth URL result
+const TEST_AUTH_RESULT = {
+  url:
+    "https://slack.com/oauth/v2/authorize?client_id=test_client_id&scope=commands%20chat:write%20channels:read%20channels:history&redirect_uri=http://localhost:8080/oauth/callback&state=test-uuid-123",
+  state: "test-uuid-123",
+};
 
 // Test token result
 const TEST_TOKEN_RESULT: TokenExchangeResult = {
@@ -46,7 +49,7 @@ Deno.test({
     const generateAuthUrlStub = stub(
       authService,
       "generateAuthUrl",
-      () => TEST_AUTH_URL,
+      () => TEST_AUTH_RESULT,
     );
 
     try {
@@ -91,10 +94,38 @@ Deno.test("OAuth callback route handles missing state parameter", async () => {
   assertEquals(text, "Invalid request: missing state parameter");
 });
 
+Deno.test("OAuth callback route handles invalid state parameter", async () => {
+  // Stub validateState to return false (invalid state)
+  const validateStateStub = stub(
+    authService,
+    "validateState",
+    () => false,
+  );
+
+  try {
+    const app = createTestApp();
+    const resp = (await app.handle(
+      new Request("http://localhost:8080/oauth/callback?code=test_code&state=invalid-state"),
+    )) as Response;
+
+    assertEquals(resp.status, 400);
+    const text = await resp.text();
+    assertEquals(text, "Invalid request: state parameter validation failed");
+  } finally {
+    validateStateStub.restore();
+  }
+});
+
 Deno.test({
   name: "OAuth callback route handles successful authorization",
   fn: async () => {
-    // We'll need to stub the token exchange since we can't call Slack API
+    // We'll need to stub both the validateState and token exchange
+    const validateStateStub = stub(
+      authService,
+      "validateState",
+      () => true,
+    );
+
     const exchangeCodeStub = stub(
       authService,
       "exchangeCodeForToken",
@@ -122,6 +153,7 @@ Deno.test({
       // Clean up test data
       await workspaceService.deleteWorkspaceByTeamId("T12345");
     } finally {
+      validateStateStub.restore();
       exchangeCodeStub.restore();
     }
   },
@@ -130,6 +162,13 @@ Deno.test({
 Deno.test({
   name: "OAuth callback route handles Slack API error",
   fn: async () => {
+    // We need to stub both validateState and exchangeCodeForToken
+    const validateStateStub = stub(
+      authService,
+      "validateState",
+      () => true,
+    );
+
     // Setup stub for exchangeCodeForToken with error response
     const exchangeCodeStub = stub(
       authService,
@@ -149,6 +188,7 @@ Deno.test({
       const text = await resp?.text();
       assertEquals(text, "OAuth failed: invalid_code");
     } finally {
+      validateStateStub.restore();
       exchangeCodeStub.restore();
     }
   },

@@ -82,8 +82,29 @@ export function createSlackVerifier() {
         )
       }`;
 
-      // 6. Compare signatures (constant-time comparison)
-      if (computedSignature !== signature) {
+      // 6. Compare signatures using a constant-time comparison
+      const computedBytes = new TextEncoder().encode(computedSignature);
+      const providedBytes = new TextEncoder().encode(signature);
+
+      // Implement constant-time comparison manually
+      let equal = computedBytes.length === providedBytes.length;
+      let timingSafeResult = 0;
+
+      // Only compare if lengths are equal, but always loop to maintain constant time
+      for (let i = 0; i < Math.max(computedBytes.length, providedBytes.length); i++) {
+        // If we're past the end of either array, use 0, else use the actual value
+        const a = i < computedBytes.length ? computedBytes[i] : 0;
+        const b = i < providedBytes.length ? providedBytes[i] : 0;
+
+        // XOR will be 0 if bytes are equal, non-zero if different
+        // Accumulate using bitwise OR to detect any difference
+        timingSafeResult |= a ^ b;
+      }
+
+      // If any bytes were different, timingSafeResult will be non-zero
+      equal = equal && (timingSafeResult === 0);
+
+      if (!equal) {
         // Enhanced debug logging for signature mismatch
         logger.warn("Slack signature verification failed", {
           requestPath: ctx.request.url.pathname,

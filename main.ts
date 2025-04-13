@@ -85,10 +85,24 @@ async function startServer(app: Application) {
 
 async function startHttpsServer(app: Application, port: number) {
   // Get certificate files
-  const certFile = Deno.env.get("CERT_FILE") || "./certs/cert.pem";
-  const keyFile = Deno.env.get("KEY_FILE") || "./certs/key.pem";
+  const certFile = Deno.env.get("CERT_FILE");
+  const keyFile = Deno.env.get("KEY_FILE");
+
+  if (!certFile || !keyFile) {
+    logger.error("CERT_FILE and KEY_FILE must be set for HTTPS mode");
+    Deno.exit(1);
+  }
 
   try {
+    // Verify the certificate files exist before trying to read them
+    try {
+      await Deno.stat(certFile);
+      await Deno.stat(keyFile);
+    } catch (error) {
+      logger.error("Certificate files not found", { certFile, keyFile, error });
+      Deno.exit(1);
+    }
+
     // Read the contents of the certificate and key files
     const cert = await Deno.readTextFile(certFile);
     const key = await Deno.readTextFile(keyFile);

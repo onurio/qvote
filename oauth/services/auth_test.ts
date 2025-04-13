@@ -11,29 +11,30 @@ Deno.test("generateAuthUrl creates proper Slack OAuth URL", () => {
   });
 
   try {
-    const authUrl = authService.generateAuthUrl();
+    const { url, state: stateToken } = authService.generateAuthUrl();
 
     // Check URL structure
     assertMatch(
-      authUrl,
+      url,
       /^https:\/\/slack\.com\/oauth\/v2\/authorize/,
       "URL should be a valid Slack OAuth URL",
     );
 
     // Check required parameters
-    const url = new URL(authUrl);
-    assertEquals(url.searchParams.get("client_id"), "test_client_id");
+    const urlObj = new URL(url);
+    assertEquals(urlObj.searchParams.get("client_id"), "test_client_id");
     assertEquals(
-      url.searchParams.get("redirect_uri"),
+      urlObj.searchParams.get("redirect_uri"),
       "https://example.com/callback",
     );
     assertEquals(
-      url.searchParams.get("scope"),
+      urlObj.searchParams.get("scope"),
       "commands chat:write channels:read channels:history channels:join",
     );
 
     // Verify state parameter is a UUID
-    const state = url.searchParams.get("state");
+    const state = urlObj.searchParams.get("state");
+    assertEquals(state, stateToken, "State token should match the returned token");
     assertMatch(
       state || "",
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
@@ -49,12 +50,12 @@ Deno.test("generateAuthUrl handles missing environment variables", () => {
   const envStub = stub(Deno.env, "get", () => "");
 
   try {
-    const authUrl = authService.generateAuthUrl();
-    const url = new URL(authUrl);
+    const { url } = authService.generateAuthUrl();
+    const urlObj = new URL(url);
 
-    assertEquals(url.searchParams.get("client_id"), "");
+    assertEquals(urlObj.searchParams.get("client_id"), "");
     assertEquals(
-      url.searchParams.get("redirect_uri"),
+      urlObj.searchParams.get("redirect_uri"),
       "http://localhost:8080/oauth/callback",
     );
   } finally {
@@ -159,6 +160,20 @@ Deno.test("exchangeCodeForToken handles network errors", async () => {
     envStub.restore();
     globalThis.fetch = originalFetch;
   }
+});
+
+Deno.test("validateState properly validates state parameter", () => {
+  // Generate a state token
+  const { state } = authService.generateAuthUrl();
+
+  // Valid state should return true
+  assertEquals(authService.validateState(state), true);
+
+  // After validating, the state should be removed (second validation fails)
+  assertEquals(authService.validateState(state), false);
+
+  // Invalid state should return false
+  assertEquals(authService.validateState("invalid-state"), false);
 });
 
 Deno.test("getSuccessHtml returns correct HTML", () => {

@@ -15,11 +15,18 @@ export type TokenExchangeResult = {
 
 // Auth service class for Slack authentication
 export class AuthService {
+  // Store for state validation (in production use Redis/DB)
+  private stateStore = new Map<string, { timestamp: number }>();
+
   // Generate the authorization URL for Slack OAuth
-  generateAuthUrl(): string {
+  generateAuthUrl(): { url: string; state: string } {
     const clientId = Deno.env.get("SLACK_CLIENT_ID") || "";
     const redirectUri = Deno.env.get("SLACK_REDIRECT_URI") ||
       "http://localhost:8080/oauth/callback";
+
+    // Generate state token and store it
+    const state = crypto.randomUUID();
+    this.stateStore.set(state, { timestamp: Date.now() });
 
     const slackAuthUrl = new URL("https://slack.com/oauth/v2/authorize");
     slackAuthUrl.searchParams.set("client_id", clientId);
@@ -28,9 +35,26 @@ export class AuthService {
       "commands chat:write channels:read channels:history channels:join",
     );
     slackAuthUrl.searchParams.set("redirect_uri", redirectUri);
-    slackAuthUrl.searchParams.set("state", crypto.randomUUID()); // Anti-CSRF token
+    slackAuthUrl.searchParams.set("state", state); // Anti-CSRF token
 
-    return slackAuthUrl.toString();
+    return { url: slackAuthUrl.toString(), state };
+  }
+
+  // Validate state parameter to prevent CSRF attacks
+  validateState(state: string): boolean {
+    const stateData = this.stateStore.get(state);
+
+    if (!stateData) {
+      return false;
+    }
+
+    // State tokens expire after 10 minutes
+    const isValid = (Date.now() - stateData.timestamp) < 10 * 60 * 1000;
+
+    // Remove used state token
+    this.stateStore.delete(state);
+
+    return isValid;
   }
 
   // Exchange code for token with Slack API

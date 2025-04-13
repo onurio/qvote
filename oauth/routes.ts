@@ -8,8 +8,8 @@ const router = new Router();
 
 // Redirect users to Slack's OAuth authorization page
 router.get("/oauth/authorize", (ctx) => {
-  const authUrl = authService.generateAuthUrl();
-  ctx.response.redirect(authUrl);
+  const { url } = authService.generateAuthUrl();
+  ctx.response.redirect(url);
 });
 
 // Handle the OAuth callback from Slack
