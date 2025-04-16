@@ -17,10 +17,12 @@ Deno.test("Home route renders correctly", async () => {
   app.use(router.routes());
   app.use(router.allowedMethods());
 
-  const resp = await app.handle(new Request("http://localhost:8080/")) as Response;
+  const resp = (await app.handle(
+    new Request("http://localhost:8080/"),
+  )) as Response;
 
   assertEquals(resp.status, 200);
   const text = await resp.text();
-  assertStringIncludes(text, "QVote - Quadratic Voting for Slack");
+  assertStringIncludes(text, "QV - Quadratic Voting for Slack");
   assertStringIncludes(text, "Add to Slack");
 });
