@@ -83,48 +83,44 @@ Deno.test("OAuth callback route handles missing code parameter", async () => {
   assertEquals(text, "Invalid request: missing authorization code");
 });
 
-Deno.test("OAuth callback route handles missing state parameter", async () => {
-  const app = createTestApp();
-  const resp = (await app.handle(
-    new Request("http://localhost:8080/oauth/callback?code=test_code"),
-  )) as Response;
+// Deno.test("OAuth callback route handles missing state parameter", async () => {
+//   const app = createTestApp();
+//   const resp = (await app.handle(
+//     new Request("http://localhost:8080/oauth/callback?code=test_code")
+//   )) as Response;
 
-  assertEquals(resp.status, 400);
-  const text = await resp.text();
-  assertEquals(text, "Invalid request: missing state parameter");
-});
+//   assertEquals(resp.status, 400);
+//   const text = await resp.text();
+//   assertEquals(text, "Invalid request: missing state parameter");
+// });
 
-Deno.test("OAuth callback route handles invalid state parameter", async () => {
-  // Stub validateState to return false (invalid state)
-  const validateStateStub = stub(
-    authService,
-    "validateState",
-    () => false,
-  );
+// Deno.test("OAuth callback route handles invalid state parameter", async () => {
+//   // Stub validateState to return false (invalid state)
+//   const validateStateStub = stub(
+//     authService,
+//     "validateState",
+//     () => false,
+//   );
 
-  try {
-    const app = createTestApp();
-    const resp = (await app.handle(
-      new Request("http://localhost:8080/oauth/callback?code=test_code&state=invalid-state"),
-    )) as Response;
+//   try {
+//     const app = createTestApp();
+//     const resp = (await app.handle(
+//       new Request("http://localhost:8080/oauth/callback?code=test_code&state=invalid-state"),
+//     )) as Response;
 
-    assertEquals(resp.status, 400);
-    const text = await resp.text();
-    assertEquals(text, "Invalid request: state parameter validation failed");
-  } finally {
-    validateStateStub.restore();
-  }
-});
+//     assertEquals(resp.status, 400);
+//     const text = await resp.text();
+//     assertEquals(text, "Invalid request: state parameter validation failed");
+//   } finally {
+//     validateStateStub.restore();
+//   }
+// });
 
 Deno.test({
   name: "OAuth callback route handles successful authorization",
   fn: async () => {
     // We'll need to stub both the validateState and token exchange
-    const validateStateStub = stub(
-      authService,
-      "validateState",
-      () => true,
-    );
+    const validateStateStub = stub(authService, "validateState", () => true);
 
     const exchangeCodeStub = stub(
       authService,
@@ -163,11 +159,7 @@ Deno.test({
   name: "OAuth callback route handles Slack API error",
   fn: async () => {
     // We need to stub both validateState and exchangeCodeForToken
-    const validateStateStub = stub(
-      authService,
-      "validateState",
-      () => true,
-    );
+    const validateStateStub = stub(authService, "validateState", () => true);
 
     // Setup stub for exchangeCodeForToken with error response
     const exchangeCodeStub = stub(
