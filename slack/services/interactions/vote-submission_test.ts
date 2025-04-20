@@ -207,6 +207,86 @@ describe(
       );
     });
 
+    it("shows error on the correct field for non-perfect square values", async () => {
+      // 1. Test error on first field
+      const stateValuesFirstField = {
+        option_0: { credits_0: { value: "5" } }, // Not a perfect square - first field
+        option_1: { credits_1: { value: "9" } }, // Is a perfect square
+        option_2: { credits_2: { value: "4" } }, // Is a perfect square
+      };
+
+      const payload1 = createMockSubmission({
+        stateValues: stateValuesFirstField,
+        voteId: createdVoteId,
+      });
+      const response1 = await handleVoteSubmission(payload1);
+
+      assertEquals(response1.status, 200);
+      assertEquals(response1.body.response_action, "errors");
+      // Error should be on option_0
+      assertEquals(
+        "option_0" in (response1.body.errors as Record<string, string>),
+        true,
+        "Error should be shown on the first field",
+      );
+      assertStringIncludes(
+        (response1.body.errors as Record<string, string>).option_0,
+        "perfect square numbers",
+      );
+
+      // 2. Test error on middle field
+      const stateValuesMiddleField = {
+        option_0: { credits_0: { value: "9" } }, // Is a perfect square
+        option_1: { credits_1: { value: "10" } }, // Not a perfect square - middle field
+        option_2: { credits_2: { value: "4" } }, // Is a perfect square
+      };
+
+      const payload2 = createMockSubmission({
+        stateValues: stateValuesMiddleField,
+        voteId: createdVoteId,
+      });
+      const response2 = await handleVoteSubmission(payload2);
+
+      assertEquals(response2.status, 200);
+      assertEquals(response2.body.response_action, "errors");
+      // Error should be on option_1
+      assertEquals(
+        "option_1" in (response2.body.errors as Record<string, string>),
+        true,
+        "Error should be shown on the middle field",
+      );
+      assertStringIncludes(
+        (response2.body.errors as Record<string, string>).option_1,
+        "perfect square numbers",
+      );
+
+      // 3. Test error on last field
+      const stateValuesLastField = {
+        option_0: { credits_0: { value: "4" } }, // Is a perfect square
+        option_1: { credits_1: { value: "9" } }, // Is a perfect square
+        option_2: { credits_2: { value: "7" } }, // Not a perfect square - last field
+      };
+
+      const payload3 = createMockSubmission({
+        stateValues: stateValuesLastField,
+        voteId: createdVoteId,
+      });
+      const response3 = await handleVoteSubmission(payload3);
+
+      assertEquals(response3.status, 200);
+      assertEquals(response3.body.response_action, "errors");
+      // Error should be on option_2
+      assertEquals(
+        "option_2" in (response3.body.errors as Record<string, string>),
+        true,
+        "Error should be shown on the last field",
+      );
+      assertStringIncludes(
+        (response3.body.errors as Record<string, string>).option_2,
+        "perfect square numbers",
+      );
+    });
+
     it("returns error when total credits exceed allowed limit", async () => {
       // Create a vote with lower credit limit
       const limitedVote = await votesService.createVote({

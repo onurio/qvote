@@ -48,7 +48,7 @@ const validateCredits = (
   state: Record<string, Record<string, { value?: string }>>,
   options: string[],
   creditsPerUser: number,
-) => {
+): { totalCredits: number; errorField?: string; errorMessage?: string } => {
   let totalCredits = 0;
   for (let i = 0; i < options.length; i++) {
     const blockId = `option_${i}`;
@@ -57,19 +57,25 @@ const validateCredits = (
       const credits = parseInt(state[blockId][actionId].value || "0", 10) || 0;
       const sqrt = Math.sqrt(credits);
       if (credits > 0 && !Number.isInteger(sqrt)) {
-        throw new ValidationError(
-          "Please use only perfect square numbers (1, 4, 9, 16, 25, 36, 49, 64, 81, 100, etc.)",
-        );
+        return {
+          totalCredits,
+          errorField: blockId,
+          errorMessage:
+            "Please use only perfect square numbers (1, 4, 9, 16, 25, 36, 49, 64, 81, 100, etc.)",
+        };
       }
       totalCredits += credits;
     }
   }
   if (totalCredits > creditsPerUser) {
-    throw new ValidationError(
-      `You've used ${totalCredits} credits, which exceeds the limit of ${creditsPerUser} credits.`,
-    );
+    return {
+      totalCredits,
+      errorField: "option_0", // Show on first field but could be a global error
+      errorMessage:
+        `You've used ${totalCredits} credits, which exceeds the limit of ${creditsPerUser} credits.`,
+    };
   }
-  return totalCredits;
+  return { totalCredits };
 };
 
 // Main handler function
@@ -87,7 +93,19 @@ export async function handleVoteSubmission(
 
     const state = payload.view!.state.values;
     const options = vote.options as string[];
-    validateCredits(state, options, vote.creditsPerUser);
+    const validationResult = validateCredits(state, options, vote.creditsPerUser);
+
+    if (validationResult.errorMessage) {
+      return {
+        status: 200,
+        body: {
+          response_action: "errors",
+          errors: {
+            [validationResult.errorField!]: validationResult.errorMessage,
+          },
+        },
+      };
+    }
 
     // Record votes
     for (let i = 0; i < options.length; i++) {
@@ -117,12 +135,21 @@ export async function handleVoteSubmission(
       if (error instanceof NotFoundError) {
         return createErrorResponse(error.message, "Not Found");
       } else {
+        // For other errors, show on a field that makes sense
+        const fieldToShowError =
+          // If we can extract the field from the error message, use that
+          error.message.includes("option_") && error.message.match(/option_\d+/)
+            ? error.message.match(/option_\d+/)![0]
+            : "option_0"; // Default to first option
+
+        const errorMessage = error.message.replace(/option_\d+:\s*/, "");
+
         return {
           status: 200,
           body: {
             response_action: error.responseAction,
             errors: {
-              option_0: error.message,
+              [fieldToShowError]: errorMessage,
             },
           },
         };
