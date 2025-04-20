@@ -59,64 +59,67 @@ Deno.test("createVoteCreationModalView creates proper modal structure", () => {
   assertEquals(metadata.userId, userId);
 });
 
-Deno.test("createVotingModalView creates proper voting modal for new vote", () => {
-  // Create mock vote data
-  const vote = {
-    id: "vote-123",
-    title: "Test Vote",
-    description: "This is a test vote",
-    creditsPerUser: 100,
-    options: ["Option 1", "Option 2", "Option 3"],
-  };
+Deno.test(
+  "createVotingModalView creates proper voting modal for new vote",
+  () => {
+    // Create mock vote data
+    const vote = {
+      id: "vote-123",
+      title: "Test Vote",
+      description: "This is a test vote",
+      creditsPerUser: 100,
+      options: ["Option 1", "Option 2", "Option 3"],
+    };
 
-  const modal = createVotingModalView(vote);
+    const modal = createVotingModalView(vote);
 
-  // Verify basic modal structure
-  assertEquals(modal.type, "modal");
-  assertEquals(modal.callback_id, "vote_submission");
-  assertEquals(modal.title.text, "Vote");
+    // Verify basic modal structure
+    assertEquals(modal.type, "modal");
+    assertEquals(modal.callback_id, "vote_submission");
+    assertEquals(modal.title.text, "Vote");
 
-  // Verify the title and description section
-  const titleBlock = modal.blocks[0] as SlackSectionBlock;
-  assertEquals(titleBlock.type, "section");
-  assertStringIncludes(titleBlock.text.text, "*Test Vote*");
-  assertStringIncludes(titleBlock.text.text, "This is a test vote");
+    // Verify the title and description section
+    const titleBlock = modal.blocks[0] as SlackSectionBlock;
+    assertEquals(titleBlock.type, "section");
+    assertStringIncludes(titleBlock.text.text, "*Test Vote*");
+    assertStringIncludes(titleBlock.text.text, "This is a test vote");
 
-  // Verify credits explanation
-  const creditsBlock = modal.blocks[1] as SlackSectionBlock;
-  assertEquals(creditsBlock.type, "section");
-  assertStringIncludes(creditsBlock.text.text, "*100* credits");
-  assertStringIncludes(creditsBlock.text.text, "perfect square numbers");
+    // Verify credits explanation
+    const creditsBlock = modal.blocks[1] as SlackSectionBlock;
+    assertEquals(creditsBlock.type, "section");
+    assertStringIncludes(creditsBlock.text.text, "*100* credits");
+    assertStringIncludes(creditsBlock.text.text, "perfect square numbers");
 
-  // Verify divider
-  assertEquals(modal.blocks[2].type, "divider");
+    // Verify divider
+    assertEquals(modal.blocks[2].type, "divider");
 
-  // Verify options blocks (2 blocks per option: section + input)
-  // Option 1
-  const option1SectionBlock = modal.blocks[3] as SlackSectionBlock;
-  assertEquals(option1SectionBlock.type, "section");
-  assertStringIncludes(option1SectionBlock.text.text, "*Option 1:* Option 1");
+    // Verify options blocks (2 blocks per option: section + input)
+    // Option 1
+    const option1SectionBlock = modal.blocks[3] as SlackSectionBlock;
+    assertEquals(option1SectionBlock.type, "section");
+    assertStringIncludes(option1SectionBlock.text.text, "*Option 1:* Option 1");
 
-  const option1InputBlock = modal.blocks[4] as SlackInputBlock;
-  assertEquals(option1InputBlock.type, "input");
-  assertEquals(option1InputBlock.block_id, "option_0");
-  assertEquals(option1InputBlock.element.action_id, "credits_0");
-  assertEquals(option1InputBlock.element.initial_value, "0");
+    const option1InputBlock = modal.blocks[4] as SlackInputBlock;
+    assertEquals(option1InputBlock.type, "input");
+    assertEquals(option1InputBlock.block_id, "option_0");
+    assertEquals(option1InputBlock.element.action_id, "credits_0");
+    assertEquals(option1InputBlock.element.initial_value, "0");
 
-  // Option 2
-  const option2SectionBlock = modal.blocks[5] as SlackSectionBlock;
-  assertEquals(option2SectionBlock.type, "section");
-  assertStringIncludes(option2SectionBlock.text.text, "*Option 2:* Option 2");
+    // Option 2
+    const option2SectionBlock = modal.blocks[5] as SlackSectionBlock;
+    assertEquals(option2SectionBlock.type, "section");
+    assertStringIncludes(option2SectionBlock.text.text, "*Option 2:* Option 2");
 
-  // Option 3
-  const option3SectionBlock = modal.blocks[7] as SlackSectionBlock;
-  assertEquals(option3SectionBlock.type, "section");
-  assertStringIncludes(option3SectionBlock.text.text, "*Option 3:* Option 3");
+    // Option 3
+    const option3SectionBlock = modal.blocks[7] as SlackSectionBlock;
+    assertEquals(option3SectionBlock.type, "section");
+    assertStringIncludes(option3SectionBlock.text.text, "*Option 3:* Option 3");
 
-  // Verify metadata
-  const metadata = JSON.parse(modal.private_metadata || "{}");
-  assertEquals(metadata.voteId, "vote-123");
-});
+    // Verify metadata
+    const metadata = JSON.parse(modal.private_metadata || "{}");
+    assertEquals(metadata.voteId, "vote-123");
+  },
+);
 
 Deno.test("createVotingModalView handles previous votes correctly", () => {
   // Create mock vote data with previous votes
@@ -137,10 +140,7 @@ Deno.test("createVotingModalView handles previous votes correctly", () => {
 
   // Verify credits explanation includes used and remaining
   const creditsBlock = modal.blocks[1] as SlackSectionBlock;
-  assertStringIncludes(
-    creditsBlock.text.text,
-    "25 used, 75 remaining",
-  );
+  assertStringIncludes(creditsBlock.text.text, "25 used, 75 remaining");
 
   // Verify initial values for each option
   // Option 1 (index 0) should have 16
@@ -184,12 +184,9 @@ Deno.test("createVoteSuccessModalView creates proper success modal", () => {
   const failureDetails = modalPostFailed.blocks[1] as SlackSectionBlock;
   assertStringIncludes(
     failureDetails.text.text,
-    "The vote was created but couldn't be posted to the channel.",
+    "The vote was created but *could not be posted to the channel*.",
   );
-  assertStringIncludes(
-    failureDetails.text.text,
-    "/invite @QVote",
-  );
+  assertStringIncludes(failureDetails.text.text, "/invite @qvote");
 });
 
 Deno.test("createVotingModalView handles null description", () => {

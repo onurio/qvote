@@ -215,10 +215,10 @@ export async function handleCreateVoteSubmission(
             channel: metadata.channelId,
             user: payload.user.id,
             text:
-              `Your vote "${title}" was created, but I couldn't post it to the channel. Make sure to invite me to the channel first with /invite @QVote.`,
+              `Your vote "${title}" was created, but I couldn't post it to the channel. Make sure to invite me to the channel first with /invite @qvote.`,
             blocks: createErrorMessageBlocks(
               "Vote Created - Channel Issue",
-              `Your vote "${title}" was created, but I couldn't post it to the channel. Make sure to invite me to the channel first with /invite @QVote.`,
+              `Your vote "${title}" was created, but I couldn't post it to the channel. Make sure to invite me to the channel first with /invite @qvote.`,
             ),
           }),
         });

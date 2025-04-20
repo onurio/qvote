@@ -261,7 +261,7 @@ export function createVoteSuccessModalView(
     type: "modal",
     title: {
       type: "plain_text",
-      text: "Success",
+      text: postResult.ok ? "Success" : "Action Required",
       emoji: true,
     },
     blocks: [
@@ -269,7 +269,9 @@ export function createVoteSuccessModalView(
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `:white_check_mark: Vote "${title}" created successfully!`,
+          text: postResult.ok
+            ? `:white_check_mark: Vote "${title}" created successfully!`
+            : `:warning: Vote "${title}" created, but not posted`,
         },
       },
       {
@@ -278,7 +280,7 @@ export function createVoteSuccessModalView(
           type: "mrkdwn",
           text: postResult.ok
             ? "The vote has been posted to the channel."
-            : "The vote was created but couldn't be posted to the channel. Make sure to invite the bot to the channel with `/invite @QVote`.",
+            : "The vote was created but *could not be posted to the channel*. You need to invite the bot to the channel first with `/invite @qvote`, then create a new vote.",
         },
       },
     ],
