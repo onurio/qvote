@@ -21,8 +21,9 @@ export class AuthService {
   // Generate the authorization URL for Slack OAuth
   generateAuthUrl(): { url: string; state: string } {
     const clientId = Deno.env.get("SLACK_CLIENT_ID") || "";
-    const redirectUri = Deno.env.get("SLACK_REDIRECT_URI") ||
-      "http://localhost:8080/oauth/callback";
+    // const redirectUri =
+    //   Deno.env.get("SLACK_REDIRECT_URI") ||
+    //   "http://localhost:8080/oauth/callback";
 
     // Generate state token and store it
     const state = crypto.randomUUID();
@@ -30,12 +31,9 @@ export class AuthService {
 
     const slackAuthUrl = new URL("https://slack.com/oauth/v2/authorize");
     slackAuthUrl.searchParams.set("client_id", clientId);
-    slackAuthUrl.searchParams.set(
-      "scope",
-      "commands chat:write channels:read channels:history channels:join",
-    );
-    slackAuthUrl.searchParams.set("redirect_uri", redirectUri);
-    slackAuthUrl.searchParams.set("state", state); // Anti-CSRF token
+    slackAuthUrl.searchParams.set("scope", "commands chat:write");
+    // slackAuthUrl.searchParams.set("redirect_uri", redirectUri);
+    // slackAuthUrl.searchParams.set("state", state); // Anti-CSRF token
 
     return { url: slackAuthUrl.toString(), state };
   }
@@ -49,7 +47,7 @@ export class AuthService {
     }
 
     // State tokens expire after 10 minutes
-    const isValid = (Date.now() - stateData.timestamp) < 10 * 60 * 1000;
+    const isValid = Date.now() - stateData.timestamp < 10 * 60 * 1000;
 
     // Remove used state token
     this.stateStore.delete(state);
@@ -62,8 +60,9 @@ export class AuthService {
     try {
       const clientId = Deno.env.get("SLACK_CLIENT_ID") || "";
       const clientSecret = Deno.env.get("SLACK_CLIENT_SECRET") || "";
-      const redirectUri = Deno.env.get("SLACK_REDIRECT_URI") ||
-        "http://localhost:8080/oauth/callback";
+      // const redirectUri =
+      //   Deno.env.get("SLACK_REDIRECT_URI") ||
+      //   "http://localhost:8080/oauth/callback";
 
       // Exchange code for access token
       const response = await fetch("https://slack.com/api/oauth.v2.access", {
@@ -75,7 +74,7 @@ export class AuthService {
           client_id: clientId,
           client_secret: clientSecret,
           code: code,
-          redirect_uri: redirectUri,
+          // redirect_uri: redirectUri,
         }),
       });
 
