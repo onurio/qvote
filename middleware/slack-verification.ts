@@ -91,7 +91,11 @@ export function createSlackVerifier() {
       let timingSafeResult = 0;
 
       // Only compare if lengths are equal, but always loop to maintain constant time
-      for (let i = 0; i < Math.max(computedBytes.length, providedBytes.length); i++) {
+      for (
+        let i = 0;
+        i < Math.max(computedBytes.length, providedBytes.length);
+        i++
+      ) {
         // If we're past the end of either array, use 0, else use the actual value
         const a = i < computedBytes.length ? computedBytes[i] : 0;
         const b = i < providedBytes.length ? providedBytes[i] : 0;
@@ -102,7 +106,7 @@ export function createSlackVerifier() {
       }
 
       // If any bytes were different, timingSafeResult will be non-zero
-      equal = equal && (timingSafeResult === 0);
+      equal = equal && timingSafeResult === 0;
 
       if (!equal) {
         // Enhanced debug logging for signature mismatch

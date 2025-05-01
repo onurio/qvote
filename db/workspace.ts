@@ -55,15 +55,38 @@ export class WorkspaceService {
     });
   }
 
-  // Delete a workspace by team ID
+  // Delete a workspace and all its associated data by team ID
   async deleteWorkspaceByTeamId(teamId: string): Promise<boolean> {
     try {
+      // First, find the workspace to get its ID
+      const workspace = await this.db.workspace.findUnique({
+        where: { teamId },
+        select: { id: true },
+      });
+
+      if (!workspace) {
+        logger.info(
+          `Workspace with teamId ${teamId} not found, nothing to delete`,
+        );
+        return true; // Nothing to delete, so operation is successful
+      }
+
+      // With Prisma, we could use cascading deletes via the schema
+      // But for more controlled deletion and logging we can do it explicitly
+      logger.info(`Deleting workspace ${teamId} and all associated data`);
+
+      // Delete the workspace and all associated data
+      // The cascade delete defined in the schema will handle vote responses
       await this.db.workspace.delete({
         where: { teamId },
       });
+
+      logger.info(
+        `Workspace ${teamId} and associated data deleted successfully`,
+      );
       return true;
     } catch (error) {
-      console.error("Error deleting workspace:", error);
+      logger.error("Error deleting workspace:", error);
       return false;
     }
   }

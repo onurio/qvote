@@ -1,6 +1,7 @@
 import { Router } from "jsr:@oak/oak/router";
 import { routeSlackCommand } from "./services/command.ts";
 import { routeSlackInteraction, SlackInteraction } from "./services/interactions.ts";
+import { handleSlackEvent, SlackEvent } from "./services/events.ts";
 import { validateSlackWorkspace } from "../middleware/slack.ts";
 import logger from "@utils/logger.ts";
 import { workspaceService } from "@db/prisma.ts";
@@ -81,6 +82,38 @@ router.post("/slack/interactions", async (ctx) => {
       "Sending error response to Slack:",
       JSON.stringify(ctx.response.body),
     );
+  }
+});
+
+// Handle Slack events (app_uninstalled, etc.)
+router.post("/slack/events", async (ctx) => {
+  try {
+    // Parse the event payload
+    const body = await ctx.request.body.json();
+    const payload = body as SlackEvent;
+
+    // Log event receipt
+    logger.info("Received Slack event:", { type: payload.type });
+
+    // Special handling for URL verification
+    if (payload.type === "url_verification") {
+      logger.info("Responding to URL verification challenge");
+      ctx.response.status = 200;
+      ctx.response.type = "application/json";
+      ctx.response.body = { challenge: payload.challenge };
+      return;
+    }
+
+    // Handle the event
+    const eventResponse = await handleSlackEvent(payload);
+
+    // Set response status and body
+    ctx.response.status = eventResponse.status;
+    ctx.response.type = "application/json";
+  } catch (error) {
+    logger.error("Error in Slack event handler:", error);
+    ctx.response.status = 500;
+    ctx.response.body = { error: "Internal server error" };
   }
 });
 

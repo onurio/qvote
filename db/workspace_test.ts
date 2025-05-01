@@ -147,9 +147,9 @@ describe(
       }
     });
 
-    it("deleteWorkspaceByTeamId deletes a workspace", async () => {
+    it("deleteWorkspaceByTeamId deletes a workspace and all associated data", async () => {
       // First create a workspace to delete
-      await workspaceService.saveWorkspace(
+      const workspace = await workspaceService.saveWorkspace(
         testTeamId,
         testTeamName,
         testAccessToken,
@@ -164,13 +164,41 @@ describe(
         "Workspace should exist before deletion",
       );
 
-      // Delete the workspace
+      // Create a test vote for this workspace
+      const testVote = await db.vote.create({
+        data: {
+          workspaceId: workspace.id,
+          channelId: "C12345",
+          creatorId: "U12345",
+          title: "Test Vote for Deletion",
+          options: ["Option 1", "Option 2"],
+          creditsPerUser: 100,
+        },
+      });
+
+      // Create a test vote response
+      await db.voteResponse.create({
+        data: {
+          voteId: testVote.id,
+          userId: "U12345",
+          optionIndex: 0,
+          credits: 10,
+        },
+      });
+
+      // Verify vote and response exist
+      const voteExists = await db.vote.findUnique({
+        where: { id: testVote.id },
+      });
+      assertEquals(voteExists !== null, true, "Vote should exist before deletion");
+
+      // Delete the workspace (which should cascade delete votes and responses)
       const result = await workspaceService.deleteWorkspaceByTeamId(testTeamId);
 
       // Verify deletion was successful
       assertEquals(result, true, "Delete operation should return true");
 
-      // Verify it no longer exists
+      // Verify workspace no longer exists
       const afterDelete = await workspaceService.getWorkspaceByTeamId(
         testTeamId,
       );
@@ -180,14 +208,24 @@ describe(
         "Workspace should no longer exist after deletion",
       );
 
+      // Verify vote no longer exists
+      const voteAfterDelete = await db.vote.findUnique({
+        where: { id: testVote.id },
+      });
+      assertEquals(
+        voteAfterDelete,
+        null,
+        "Vote should no longer exist after workspace deletion",
+      );
+
       // Test deleting a non-existent workspace
       const nonExistentResult = await workspaceService.deleteWorkspaceByTeamId(
         "T-NONEXISTENT",
       );
       assertEquals(
         nonExistentResult,
-        false,
-        "Deleting non-existent workspace should return false",
+        true,
+        "Deleting non-existent workspace should return true as there's nothing to delete",
       );
     });
 
