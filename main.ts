@@ -5,7 +5,7 @@ import { load } from "@std/dotenv";
 import oauthRouter from "@oauth/routes.ts";
 import slackRouter from "@slack/routes.ts";
 import { closeDatabase, connectToDatabase } from "@db/prisma.ts";
-import { getHomePage, getPrivacyPolicyPage } from "@ui/pages.ts";
+import { getHomePage, getPrivacyPolicyPage, getTermsOfServicePage } from "@ui/pages.ts";
 import logger from "@utils/logger.ts";
 import { createSlackVerifier } from "@middleware/slack-verification.ts";
 
@@ -43,6 +43,12 @@ function setupServer() {
   router.get("/privacy-policy", async (ctx) => {
     logger.info("Privacy policy page requested");
     ctx.response.body = await getPrivacyPolicyPage();
+  });
+
+  // Terms of service route
+  router.get("/terms-of-service", async (ctx) => {
+    logger.info("Terms of service page requested");
+    ctx.response.body = await getTermsOfServicePage();
   });
 
   // Create app
