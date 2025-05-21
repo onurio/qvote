@@ -46,10 +46,34 @@ export async function routeSlackCommand(
 }
 
 // Handle the /qvote command
-async function handleQVoteCommand(
+export async function handleQVoteCommand(
   request: SlackRequest,
   workspace: Workspace,
 ): Promise<CommandResponse> {
+  // Check if the command is a help request
+  if (request.text.trim().toLowerCase() === "help") {
+    return {
+      status: 200,
+      body: {
+        response_type: "ephemeral",
+        text: "QVote Help - Create and manage quadratic votes in your Slack workspace",
+        blocks: createInfoMessageBlocks(
+          "QVote Help",
+          "QVote allows you to create and manage quadratic votes in your Slack workspace.\n\n" +
+            "*Commands:*\n" +
+            "• `/qvote` - Opens the vote creation modal where you can create a new vote\n" +
+            "• `/qvote help` - Shows this help message\n\n" +
+            "When creating a vote, you can:\n" +
+            "• Set a title and description\n" +
+            "• Add multiple voting options\n" +
+            "• Set the available voting credits\n" +
+            "• Set an auto-close time\n\n" +
+            "For more information, visit our website or contact support.",
+        ),
+      },
+    };
+  }
+
   try {
     // Open a modal for the user to enter vote details
     const modalResponse = await openVoteCreationModal(
