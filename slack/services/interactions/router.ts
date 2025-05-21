@@ -48,6 +48,7 @@ async function handleBlockActions(
     case "show_vote_results":
       return await handleShowVoteResults(action, payload, workspaceId);
     case "end_vote":
+      logger.debug("End vote action payload:", JSON.stringify(payload));
       return await handleEndVote(action, payload, workspaceId);
     default:
       logger.warn(`Unknown action`, { actionId: action.action_id });

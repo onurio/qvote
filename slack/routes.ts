@@ -65,6 +65,9 @@ router.post("/slack/interactions", async (ctx) => {
       workspace.id,
     );
 
+    // Log the response for debugging
+    logger.info("Interaction response body:", JSON.stringify(interactionResponse.body));
+
     // Set response status, type and body
     ctx.response.status = interactionResponse.status;
     ctx.response.type = "application/json";

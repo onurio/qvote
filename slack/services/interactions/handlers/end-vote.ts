@@ -25,6 +25,32 @@ export async function handleEndVote(
 
     // Check if the user is the creator of the vote
     if (vote.creatorId !== payload.user.id) {
+      logger.warn("Unauthorized vote end attempt", {
+        voteId,
+        userId: payload.user.id,
+        creatorId: vote.creatorId,
+        hasResponseUrl: !!payload.response_url,
+      });
+
+      // If we have a response_url, use it directly for better error visibility
+      if (payload.response_url) {
+        try {
+          await fetch(payload.response_url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              text:
+                `⛔ *Permission Denied*: Only the creator of this vote (<@${vote.creatorId}>) can end it. You don't have permission to perform this action.`,
+              response_type: "ephemeral",
+              replace_original: false,
+            }),
+          });
+          logger.info("Sent error via response_url", { voteId });
+        } catch (error) {
+          logger.error("Error sending to response_url", error);
+        }
+      }
+
       return createErrorResponse(
         `Only the creator of this vote (<@${vote.creatorId}>) can end it. You don't have permission to perform this action.`,
         "Permission Denied",
