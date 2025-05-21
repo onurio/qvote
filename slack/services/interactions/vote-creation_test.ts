@@ -200,113 +200,213 @@ describe(
       };
 
       it("validates required fields", async () => {
-        // Test with missing title
-        const submissionMissingTitle = createMockSubmission({
-          title: "",
-        });
+        // Mock the Slack API calls to allow channel access check to pass
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = (
+          url: string | URL | Request,
+          _init?: RequestInit,
+        ) => {
+          if (url.toString().includes("conversations.info")) {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: () => Promise.resolve({ ok: true }),
+            } as Response);
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ ok: true }),
+          } as Response);
+        };
 
-        const responseMissingTitle = await handleCreateVoteSubmission(
-          submissionMissingTitle,
-          workspaceId,
-        );
+        try {
+          // Test with missing title
+          const submissionMissingTitle = createMockSubmission({
+            title: "",
+          });
 
-        assertEquals(responseMissingTitle.status, 200);
-        assertEquals(responseMissingTitle.body.response_action, "errors");
-        assertStringIncludes(
-          JSON.stringify(responseMissingTitle.body.errors),
-          "Title is required",
-        );
+          const responseMissingTitle = await handleCreateVoteSubmission(
+            submissionMissingTitle,
+            workspaceId,
+          );
 
-        // Test with missing options
-        const submissionMissingOptions = createMockSubmission({
-          optionsText: "",
-        });
+          assertEquals(responseMissingTitle.status, 200);
+          assertEquals(responseMissingTitle.body.response_action, "errors");
+          assertStringIncludes(
+            JSON.stringify(responseMissingTitle.body.errors),
+            "Title is required",
+          );
 
-        const responseMissingOptions = await handleCreateVoteSubmission(
-          submissionMissingOptions,
-          workspaceId,
-        );
+          // Test with missing options
+          const submissionMissingOptions = createMockSubmission({
+            optionsText: "",
+          });
 
-        assertEquals(responseMissingOptions.status, 200);
-        assertEquals(responseMissingOptions.body.response_action, "errors");
-        assertStringIncludes(
-          JSON.stringify(responseMissingOptions.body.errors),
-          "At least one option is required",
-        );
+          const responseMissingOptions = await handleCreateVoteSubmission(
+            submissionMissingOptions,
+            workspaceId,
+          );
+
+          assertEquals(responseMissingOptions.status, 200);
+          assertEquals(responseMissingOptions.body.response_action, "errors");
+          assertStringIncludes(
+            JSON.stringify(responseMissingOptions.body.errors),
+            "At least one option is required",
+          );
+        } finally {
+          // Restore original fetch
+          globalThis.fetch = originalFetch;
+        }
       });
 
       it("validates minimum number of options", async () => {
-        // Test with only one option
-        const submissionOneOption = createMockSubmission({
-          optionsText: "Option 1",
-        });
+        // Mock the Slack API calls to allow channel access check to pass
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = (
+          url: string | URL | Request,
+          _init?: RequestInit,
+        ) => {
+          if (url.toString().includes("conversations.info")) {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: () => Promise.resolve({ ok: true }),
+            } as Response);
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ ok: true }),
+          } as Response);
+        };
 
-        const responseOneOption = await handleCreateVoteSubmission(
-          submissionOneOption,
-          workspaceId,
-        );
+        try {
+          // Test with only one option
+          const submissionOneOption = createMockSubmission({
+            optionsText: "Option 1",
+          });
 
-        assertEquals(responseOneOption.status, 200);
-        assertEquals(responseOneOption.body.response_action, "errors");
-        assertStringIncludes(
-          JSON.stringify(responseOneOption.body.errors),
-          "At least two options are required",
-        );
+          const responseOneOption = await handleCreateVoteSubmission(
+            submissionOneOption,
+            workspaceId,
+          );
+
+          assertEquals(responseOneOption.status, 200);
+          assertEquals(responseOneOption.body.response_action, "errors");
+          assertStringIncludes(
+            JSON.stringify(responseOneOption.body.errors),
+            "At least two options are required",
+          );
+        } finally {
+          // Restore original fetch
+          globalThis.fetch = originalFetch;
+        }
       });
 
       it("validates credits is a positive number", async () => {
-        // Test with negative credits
-        const submissionNegativeCredits = createMockSubmission({
-          creditsText: "-10",
-        });
+        // Mock the Slack API calls to allow channel access check to pass
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = (
+          url: string | URL | Request,
+          _init?: RequestInit,
+        ) => {
+          if (url.toString().includes("conversations.info")) {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: () => Promise.resolve({ ok: true }),
+            } as Response);
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ ok: true }),
+          } as Response);
+        };
 
-        const responseNegativeCredits = await handleCreateVoteSubmission(
-          submissionNegativeCredits,
-          workspaceId,
-        );
+        try {
+          // Test with negative credits
+          const submissionNegativeCredits = createMockSubmission({
+            creditsText: "-10",
+          });
 
-        assertEquals(responseNegativeCredits.status, 200);
-        assertEquals(responseNegativeCredits.body.response_action, "errors");
-        assertStringIncludes(
-          JSON.stringify(responseNegativeCredits.body.errors),
-          "Credits must be a positive number",
-        );
+          const responseNegativeCredits = await handleCreateVoteSubmission(
+            submissionNegativeCredits,
+            workspaceId,
+          );
 
-        // Test with non-numeric credits
-        const submissionNonNumericCredits = createMockSubmission({
-          creditsText: "abc",
-        });
+          assertEquals(responseNegativeCredits.status, 200);
+          assertEquals(responseNegativeCredits.body.response_action, "errors");
+          assertStringIncludes(
+            JSON.stringify(responseNegativeCredits.body.errors),
+            "Credits must be a positive number",
+          );
 
-        const responseNonNumericCredits = await handleCreateVoteSubmission(
-          submissionNonNumericCredits,
-          workspaceId,
-        );
+          // Test with non-numeric credits
+          const submissionNonNumericCredits = createMockSubmission({
+            creditsText: "abc",
+          });
 
-        assertEquals(responseNonNumericCredits.status, 200);
-        assertEquals(responseNonNumericCredits.body.response_action, "errors");
-        assertStringIncludes(
-          JSON.stringify(responseNonNumericCredits.body.errors),
-          "Credits must be a positive number",
-        );
+          const responseNonNumericCredits = await handleCreateVoteSubmission(
+            submissionNonNumericCredits,
+            workspaceId,
+          );
+
+          assertEquals(responseNonNumericCredits.status, 200);
+          assertEquals(responseNonNumericCredits.body.response_action, "errors");
+          assertStringIncludes(
+            JSON.stringify(responseNonNumericCredits.body.errors),
+            "Credits must be a positive number",
+          );
+        } finally {
+          // Restore original fetch
+          globalThis.fetch = originalFetch;
+        }
       });
 
       it("validates credits is a perfect square", async () => {
-        // Test with credits that is not a perfect square
-        const submissionNonSquareCredits = createMockSubmission({
-          creditsText: "10",
-        });
+        // Mock the Slack API calls to allow channel access check to pass
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = (
+          url: string | URL | Request,
+          _init?: RequestInit,
+        ) => {
+          if (url.toString().includes("conversations.info")) {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: () => Promise.resolve({ ok: true }),
+            } as Response);
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ ok: true }),
+          } as Response);
+        };
 
-        const responseNonSquareCredits = await handleCreateVoteSubmission(
-          submissionNonSquareCredits,
-          workspaceId,
-        );
+        try {
+          // Test with credits that is not a perfect square
+          const submissionNonSquareCredits = createMockSubmission({
+            creditsText: "10",
+          });
 
-        assertEquals(responseNonSquareCredits.status, 200);
-        assertEquals(responseNonSquareCredits.body.response_action, "errors");
-        assertStringIncludes(
-          JSON.stringify(responseNonSquareCredits.body.errors),
-          "Credits must be a perfect square",
-        );
+          const responseNonSquareCredits = await handleCreateVoteSubmission(
+            submissionNonSquareCredits,
+            workspaceId,
+          );
+
+          assertEquals(responseNonSquareCredits.status, 200);
+          assertEquals(responseNonSquareCredits.body.response_action, "errors");
+          assertStringIncludes(
+            JSON.stringify(responseNonSquareCredits.body.errors),
+            "Credits must be a perfect square",
+          );
+        } finally {
+          // Restore original fetch
+          globalThis.fetch = originalFetch;
+        }
       });
 
       it("successfully creates a vote", async () => {
@@ -402,14 +502,20 @@ describe(
         );
       });
 
-      it("creates vote even if channel message fails", async () => {
+      it("does not create vote if channel message fails", async () => {
         // Mock the Slack API calls - this time with chat.postMessage failing
         const originalFetch = globalThis.fetch;
         globalThis.fetch = (
           url: string | URL | Request,
           _init?: RequestInit,
         ) => {
-          if (url.toString().includes("conversations.join")) {
+          if (url.toString().includes("conversations.info")) {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: () => Promise.resolve({ ok: true }),
+            } as Response);
+          } else if (url.toString().includes("conversations.join")) {
             return Promise.resolve({
               ok: true,
               status: 200,
@@ -451,7 +557,7 @@ describe(
           assertEquals(response.status, 200);
           assertEquals(response.body.response_action, "update");
 
-          // Verify vote was created in the database despite channel error
+          // Verify vote was NOT created in the database
           const votes = await prisma.vote.findMany({
             where: {
               workspaceId: workspaceId,
@@ -459,8 +565,62 @@ describe(
             },
           });
 
-          assertEquals(votes.length, 1);
-          assertEquals(votes[0].title, "Vote With Channel Error");
+          assertEquals(votes.length, 0, "Vote should not be created when channel message fails");
+        } finally {
+          // Restore original fetch
+          globalThis.fetch = originalFetch;
+        }
+      });
+
+      it("does not create vote if app is not in channel", async () => {
+        // Mock the Slack API calls - this time with conversations.info failing
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = (
+          url: string | URL | Request,
+          _init?: RequestInit,
+        ) => {
+          if (url.toString().includes("conversations.info")) {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: () => Promise.resolve({ ok: false, error: "channel_not_found" }),
+            } as Response);
+          }
+
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ ok: true }),
+          } as Response);
+        };
+
+        try {
+          // Proper submission with valid data
+          const validSubmission = createMockSubmission({
+            title: "Vote With App Not In Channel",
+            creditsText: "16", // A perfect square
+          });
+
+          const response = await handleCreateVoteSubmission(
+            validSubmission,
+            workspaceId,
+          );
+
+          assertEquals(response.status, 200);
+          assertEquals(response.body.response_action, "errors");
+          // Check that the error contains the expected message
+          const errorJson = JSON.stringify(response.body.errors);
+          assertStringIncludes(errorJson, "not in the channel");
+
+          // Verify vote was NOT created in the database
+          const votes = await prisma.vote.findMany({
+            where: {
+              workspaceId: workspaceId,
+              title: "Vote With App Not In Channel",
+            },
+          });
+
+          assertEquals(votes.length, 0, "Vote should not be created when app is not in channel");
         } finally {
           // Restore original fetch
           globalThis.fetch = originalFetch;

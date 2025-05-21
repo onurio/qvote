@@ -1,6 +1,6 @@
 import { createVoteBlocks } from "@slack/services/blocks.ts";
 import { InteractionResponse } from "./types.ts";
-import { createErrorMessageBlocks } from "../blocks.ts";
+import { createErrorMessageBlocks, createInfoMessageBlocks } from "../blocks.ts";
 import logger from "@utils/logger.ts";
 import { Vote } from "generated/index.d.ts";
 import { votesService } from "@db/prisma.ts";
@@ -123,6 +123,56 @@ export async function updateSlackMessage(
 /**
  * Creates a standardized error response
  */
+/**
+ * Sends a message to a Slack response_url
+ * @param responseUrl The Slack response_url to send the message to
+ * @param message The message text to send
+ * @param options Additional options for the message
+ * @returns True if the message was sent successfully, false otherwise
+ */
+export async function sendResponseUrlMessage(
+  responseUrl: string,
+  message: string,
+  options?: {
+    title?: string;
+    isError?: boolean;
+    blocks?: Record<string, unknown>[];
+    replace_original?: boolean;
+  },
+): Promise<boolean> {
+  try {
+    const title = options?.title || (options?.isError ? "Error" : "Information");
+
+    // Format the message with an icon based on whether it's an error
+    const formattedMessage = options?.isError ? `⛔ *${title}*: ${message}` : message;
+
+    // Create appropriate blocks if not provided
+    const blocks = options?.blocks ||
+      (options?.isError
+        ? createErrorMessageBlocks(title, message)
+        : createInfoMessageBlocks(title, message));
+
+    const response = await fetch(responseUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: formattedMessage,
+        response_type: "ephemeral",
+        blocks: blocks,
+        replace_original: options?.replace_original === true,
+      }),
+    });
+
+    const result = await response.json();
+    logger.debug("Response URL message result", result);
+
+    return response.ok;
+  } catch (error) {
+    logger.error("Error sending to response_url", error);
+    return false;
+  }
+}
+
 export function createErrorResponse(
   message: string,
   title: string = "Error",

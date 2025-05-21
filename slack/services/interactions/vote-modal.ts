@@ -3,7 +3,10 @@ import { createVotingModalView } from "./templates.ts";
 
 import logger from "@utils/logger.ts";
 import { votesService, workspaceService } from "@db/prisma.ts";
-import { createErrorResponse } from "@slack/services/interactions/vote-utils.ts";
+import {
+  createErrorResponse,
+  sendResponseUrlMessage,
+} from "@slack/services/interactions/vote-utils.ts";
 import { NotFoundError, UnauthorizedError } from "@db/errors.ts";
 
 // Validate if user is allowed to vote
@@ -62,25 +65,19 @@ export async function handleOpenVoteModal(
 
         // If we have a response_url, use it directly for better error visibility
         if (payload.response_url) {
-          try {
-            await fetch(payload.response_url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                text:
-                  `⛔ *Unauthorized*: You are not authorized to vote in this poll. Only selected users can vote.${
-                    vote.creatorId
-                      ? ` Please contact <@${vote.creatorId}> (the creator of this vote) if you believe this is a mistake.`
-                      : ""
-                  }`,
-                response_type: "ephemeral",
-                replace_original: false,
-              }),
-            });
-            logger.info("Sent error via response_url", { voteId });
-          } catch (fetchError) {
-            logger.error("Error sending to response_url", fetchError);
-          }
+          const errorMessage =
+            `You are not authorized to vote in this poll. Only selected users can vote.${
+              vote.creatorId
+                ? ` Please contact <@${vote.creatorId}> (the creator of this vote) if you believe this is a mistake.`
+                : ""
+            }`;
+
+          await sendResponseUrlMessage(payload.response_url, errorMessage, {
+            title: "Unauthorized",
+            isError: true,
+          });
+
+          logger.info("Sent error via response_url", { voteId });
         }
 
         throw error;

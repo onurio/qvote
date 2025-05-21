@@ -2,7 +2,11 @@ import { createResultsBlocks } from "@slack/services/blocks.ts";
 import { InteractionResponse, SlackInteraction } from "../types.ts";
 
 import logger from "@utils/logger.ts";
-import { createErrorResponse, updateOriginalMessageAfterVoteEnd } from "../vote-utils.ts";
+import {
+  createErrorResponse,
+  sendResponseUrlMessage,
+  updateOriginalMessageAfterVoteEnd,
+} from "../vote-utils.ts";
 import { votesService, workspaceService } from "@db/prisma.ts";
 
 export async function handleEndVote(
@@ -34,21 +38,13 @@ export async function handleEndVote(
 
       // If we have a response_url, use it directly for better error visibility
       if (payload.response_url) {
-        try {
-          await fetch(payload.response_url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              text:
-                `⛔ *Permission Denied*: Only the creator of this vote (<@${vote.creatorId}>) can end it. You don't have permission to perform this action.`,
-              response_type: "ephemeral",
-              replace_original: false,
-            }),
-          });
-          logger.info("Sent error via response_url", { voteId });
-        } catch (error) {
-          logger.error("Error sending to response_url", error);
-        }
+        const errorMessage =
+          `Only the creator of this vote (<@${vote.creatorId}>) can end it. You don't have permission to perform this action.`;
+        await sendResponseUrlMessage(payload.response_url, errorMessage, {
+          title: "Permission Denied",
+          isError: true,
+        });
+        logger.info("Sent error via response_url", { voteId });
       }
 
       return createErrorResponse(

@@ -1,10 +1,13 @@
-import { createErrorMessageBlocks, createVoteBlocks } from "../blocks.ts";
+import { createErrorMessageBlocks } from "../blocks.ts";
 import { InteractionResponse, SlackInteraction } from "./types.ts";
 import { createVoteCreationModalView, createVoteSuccessModalView } from "./templates.ts";
 
 import logger from "@utils/logger.ts";
 import { votesService, workspaceService } from "@db/prisma.ts";
-import { createErrorResponse } from "@slack/services/interactions/vote-utils.ts";
+import {
+  createErrorResponse,
+  sendResponseUrlMessage,
+} from "@slack/services/interactions/vote-utils.ts";
 
 // Handle the vote creation submission
 export async function handleCreateVoteSubmission(
@@ -27,6 +30,59 @@ export async function handleCreateVoteSubmission(
       ? JSON.parse(String(payload.view!.private_metadata))
       : {};
     logger.debug("Metadata", metadata);
+
+    // Check if the app is in the channel before creating the vote
+    try {
+      logger.info("Checking if app is in the channel", {
+        channelId: metadata.channelId,
+      });
+
+      const conversationsInfoResponse = await fetch(
+        `https://slack.com/api/conversations.info?channel=${metadata.channelId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${workspaceToken}`,
+          },
+        },
+      );
+
+      const conversationsInfo = await conversationsInfoResponse.json();
+
+      // If we can't get info about the channel, we're likely not in it
+      if (!conversationsInfo.ok) {
+        logger.warn("Failed to get channel info", {
+          error: conversationsInfo.error,
+        });
+
+        // If we have a response_url, use it to inform the user
+        if (payload.response_url) {
+          const errorMessage =
+            `I couldn't create your vote because I'm not in the channel. Please add me to the channel first with:\n\n\`/invite @qvote\`\n\nThen try creating your vote again.`;
+
+          await sendResponseUrlMessage(payload.response_url, errorMessage, {
+            title: "App Not in Channel",
+            isError: true,
+          });
+
+          logger.info("Sent channel error via response_url");
+        }
+
+        // Return error response
+        return {
+          status: 200,
+          body: {
+            response_action: "errors",
+            errors: {
+              vote_title:
+                "I couldn't create your vote because I'm not in the channel. Please add me to the channel first with /invite @qvote",
+            },
+          },
+        };
+      }
+    } catch (channelCheckError) {
+      logger.error("Error checking if app is in channel", channelCheckError);
+      // Continue despite the error, we'll handle posting failures below
+    }
 
     // Extract values from the form
     const title = state.vote_title.vote_title_input.value;
@@ -54,7 +110,10 @@ export async function handleCreateVoteSubmission(
         }
 
         allowedVoters = selectedUsers;
-        logger.debug("Selected allowed voters (from conversations, bots excluded)", allowedVoters);
+        logger.debug(
+          "Selected allowed voters (from conversations, bots excluded)",
+          allowedVoters,
+        );
       }
     }
 
@@ -125,8 +184,8 @@ export async function handleCreateVoteSubmission(
 
     // Remove duration field validation
 
-    // Create the vote in the database
-    logger.info("Creating vote", {
+    // Log the vote creation info
+    logger.info("Preparing to create vote", {
       workspaceId,
       channelId: metadata.channelId,
       creatorId: payload.user.id,
@@ -138,22 +197,17 @@ export async function handleCreateVoteSubmission(
       // endTime removed
     });
 
-    const vote = await votesService.createVote({
-      workspaceId,
-      channelId: metadata.channelId,
-      creatorId: payload.user.id,
-      title,
-      description,
-      options,
-      allowedVoters,
-      creditsPerUser: credits,
-      // endTime removed
-    });
-
-    logger.info("Vote created successfully", { voteId: vote.id });
-
-    // Create the blocks for the vote message
-    const blocks = JSON.stringify(createVoteBlocks(vote, ""));
+    // Create simple blocks for checking if we can post to the channel
+    // This avoids type issues with the Vote interface
+    const tempBlocks = JSON.stringify([
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `Creating vote: "${title}"`,
+        },
+      },
+    ]);
 
     // Post the vote message to the channel
     logger.info("Posting message to channel", {
@@ -192,7 +246,7 @@ export async function handleCreateVoteSubmission(
       },
       body: JSON.stringify({
         channel: metadata.channelId,
-        blocks,
+        blocks: tempBlocks,
         text: `New vote: ${title}`, // Fallback text if blocks don't render
       }),
     });
@@ -200,33 +254,70 @@ export async function handleCreateVoteSubmission(
     const postResult = await postResponse.json();
     logger.debug("Post message result", postResult);
 
-    // If we couldn't post to the channel, send an ephemeral message to the user
+    // If we couldn't post to the channel, we won't store the vote
     if (!postResult.ok) {
-      logger.warn(`Failed to post message`, { error: postResult.error });
+      logger.warn(`Failed to post message, not creating vote`, {
+        error: postResult.error,
+      });
 
-      // Try to send an ephemeral message to the user
-      try {
-        await fetch("https://slack.com/api/chat.postEphemeral", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json; charset=utf-8",
-            Authorization: `Bearer ${workspaceToken}`,
-          },
-          body: JSON.stringify({
-            channel: metadata.channelId,
-            user: payload.user.id,
-            text:
-              `Your vote "${title}" was created, but I couldn't post it to the channel. Make sure to invite me to the channel first with /invite @qvote.`,
-            blocks: createErrorMessageBlocks(
-              "Vote Created - Channel Issue",
-              `Your vote "${title}" was created, but I couldn't post it to the channel. Make sure to invite me to the channel first with /invite @qvote.`,
-            ),
-          }),
+      // First try to use the response_url if available
+      if (payload.response_url) {
+        const errorMessage =
+          `I couldn't create your vote because I can't post messages to the channel. This usually happens when the app hasn't been added to the channel yet. Please invite me to the channel first with:\n\n\`/invite @qvote\`\n\nThen try creating your vote again.`;
+
+        await sendResponseUrlMessage(payload.response_url, errorMessage, {
+          title: "App Not in Channel",
+          isError: true,
         });
-      } catch (ephemeralError) {
-        logger.error("Failed to send ephemeral message", ephemeralError);
+
+        logger.info("Sent channel error via response_url");
+      } // Fallback to chat.postEphemeral if response_url is not available
+      else {
+        try {
+          await fetch("https://slack.com/api/chat.postEphemeral", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json; charset=utf-8",
+              Authorization: `Bearer ${workspaceToken}`,
+            },
+            body: JSON.stringify({
+              channel: metadata.channelId,
+              user: payload.user.id,
+              text:
+                `I couldn't create your vote because I can't post messages to the channel. Please invite me to the channel first with /invite @qvote.`,
+              blocks: createErrorMessageBlocks(
+                "Vote Creation Failed",
+                `I couldn't create your vote because I can't post messages to the channel. Please invite me to the channel first with /invite @qvote.`,
+              ),
+            }),
+          });
+        } catch (ephemeralError) {
+          logger.error("Failed to send ephemeral message", ephemeralError);
+        }
       }
+
+      // Return early without creating the vote in the database
+      return {
+        status: 200,
+        body: {
+          response_action: "update",
+          view: createVoteSuccessModalView(title, { ok: false }),
+        },
+      };
     }
+
+    // If the message was posted successfully, create the vote in the database
+    await votesService.createVote({
+      workspaceId,
+      channelId: metadata.channelId,
+      creatorId: payload.user.id,
+      title,
+      description,
+      options,
+      allowedVoters,
+      creditsPerUser: credits,
+      // endTime removed
+    });
 
     // For view_submission, we need to provide a proper response
     return {
