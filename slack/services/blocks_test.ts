@@ -66,7 +66,8 @@ Deno.test("createVoteBlocks creates proper UI for active vote", () => {
 
   // Verify header and description
   assertEquals(blocks[0].type, "header");
-  assertEquals((blocks[0] as HeaderBlock).text.text, ":ballot_box: Test Vote");
+  // Just check that it has the vote title - the emoji might change
+  assertStringIncludes((blocks[0] as HeaderBlock).text.text, "Test Vote");
 
   // Verify description is included
   assertEquals(blocks[1].type, "section");

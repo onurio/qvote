@@ -45,7 +45,16 @@ Deno.test("createVoteCreationModalView creates proper modal structure", () => {
   assertEquals(votersBlock.type, "input");
   assertEquals(votersBlock.block_id, "vote_allowed_voters");
   assertEquals(votersBlock.optional, true);
-  assertEquals(votersBlock.element.type, "multi_users_select");
+  assertEquals(votersBlock.element.type, "multi_conversations_select");
+
+  // Type assertion for filter property - use unknown as an intermediate step
+  const elementWithFilter = votersBlock.element as unknown;
+  const castedElement = elementWithFilter as {
+    filter: { include: string[]; exclude_bot_users: boolean };
+  };
+  const filterObj = castedElement.filter;
+  assertEquals(filterObj.include[0], "im");
+  assertEquals(filterObj.exclude_bot_users, true);
 
   // Verify credits input
   const creditsBlock = modal.blocks[4] as SlackInputBlock;

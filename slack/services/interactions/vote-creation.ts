@@ -33,17 +33,18 @@ export async function handleCreateVoteSubmission(
     const description = state.vote_description?.vote_description_input?.value || "";
     const optionsText = state.vote_options.vote_options_input.value;
 
-    // Extract selected users from the multi_users_select
+    // Extract selected conversations from multi_conversations_select
+    // (which should be user IDs for direct messages)
     const allowedVotersObj = state.vote_allowed_voters?.vote_allowed_voters_input;
     let allowedVoters = null;
 
-    // The structure of selected users is different from other fields
     // For multi-select elements, the structure is different than plain_text_input
-    if (allowedVotersObj && "selected_users" in allowedVotersObj) {
-      // Type assertion to access selected_users
+    // For conversations select, it uses selected_conversations instead of selected_users
+    if (allowedVotersObj && "selected_conversations" in allowedVotersObj) {
+      // Type assertion to access selected_conversations
       const selectedUsers = (
-        allowedVotersObj as unknown as { selected_users: string[] }
-      ).selected_users;
+        allowedVotersObj as unknown as { selected_conversations: string[] }
+      ).selected_conversations;
 
       // Only set allowedVoters if users were actually selected
       if (selectedUsers.length > 0) {
@@ -53,7 +54,7 @@ export async function handleCreateVoteSubmission(
         }
 
         allowedVoters = selectedUsers;
-        logger.debug("Selected allowed voters", allowedVoters);
+        logger.debug("Selected allowed voters (from conversations, bots excluded)", allowedVoters);
       }
     }
 

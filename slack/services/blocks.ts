@@ -23,7 +23,7 @@ export function createVoteBlocks(vote: Vote, _botUserId: string) {
       type: "header",
       text: {
         type: "plain_text",
-        text: `:ballot_box: ${vote.title}`,
+        text: `:ballot_box_with_ballot: ${vote.title}`,
       },
     },
   ];

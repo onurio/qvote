@@ -89,12 +89,16 @@ export function createVoteCreationModalView(
         block_id: "vote_allowed_voters",
         optional: true,
         element: {
-          type: "multi_users_select",
+          type: "multi_conversations_select",
           action_id: "vote_allowed_voters_input",
           placeholder: {
             type: "plain_text",
             text: "Select users allowed to vote",
             emoji: true,
+          },
+          filter: {
+            include: ["im"],
+            exclude_bot_users: true,
           },
         },
         label: {

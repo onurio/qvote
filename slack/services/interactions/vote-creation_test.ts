@@ -188,8 +188,8 @@ describe(
                 vote_allowed_voters: allowedVoters.length > 0
                   ? {
                     vote_allowed_voters_input: {
-                      type: "multi_users_select",
-                      selected_users: allowedVoters,
+                      type: "multi_conversations_select",
+                      selected_conversations: allowedVoters,
                     },
                   }
                   : undefined,
