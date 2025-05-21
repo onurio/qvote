@@ -149,7 +149,7 @@ describe("handleEndVote", { sanitizeResources: false, sanitizeOps: false }, () =
     );
 
     assertEquals(response.status, 200);
-    assertStringIncludes(response.body.text || "", "Only the creator of the vote can end it");
+    assertStringIncludes(response.body.text || "", "Only the creator of this vote");
   });
 
   it("successfully ends vote when called by creator", async () => {

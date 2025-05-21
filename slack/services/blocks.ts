@@ -94,7 +94,7 @@ export function createVoteBlocks(vote: Vote, _botUserId: string) {
     });
   }
 
-  // Add End Vote button for creator only if vote is not ended
+  // Add End Vote button if vote is not ended with appropriate warning
   if (!vote.isEnded) {
     actionElements.push({
       type: "button",
@@ -111,8 +111,8 @@ export function createVoteBlocks(vote: Vote, _botUserId: string) {
         },
         text: {
           type: "mrkdwn",
-          text:
-            "This will end the voting period immediately. All votes cast so far will be counted, but no new votes will be accepted. This action cannot be undone.",
+          text: "Note: Only the creator of this vote (<@" + vote.creatorId +
+            ">) can end it.\n\nEnding will close the voting period immediately. All votes cast so far will be counted, but no new votes will be accepted. This action cannot be undone.",
         },
         confirm: {
           type: "plain_text",

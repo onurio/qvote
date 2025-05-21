@@ -160,6 +160,46 @@ describe(
       assertStringIncludes(response.body.text || "", "This vote has ended");
     });
 
+    it("returns error when user is not authorized to vote", async () => {
+      // Create a new vote with restricted voters
+      const unauthorizedUserId = "unauthorized-user-789";
+      const authorizedUserId = "authorized-user-123";
+
+      const vote = await votesService.createVote({
+        workspaceId: workspaceId,
+        channelId: mockChannelId,
+        creatorId: mockUserId,
+        title: "Restricted Vote",
+        description: "Only authorized users can vote",
+        options: ["Option 1", "Option 2"],
+        allowedVoters: [authorizedUserId, mockUserId], // This user is not included
+        creditsPerUser: 100,
+      });
+
+      const action = createMockAction(`vote_${vote.id}`);
+      const mockPayload = createMockPayload(unauthorizedUserId);
+
+      const response = await handleOpenVoteModal(
+        action,
+        mockPayload,
+        workspaceId,
+      );
+
+      assertEquals(response.status, 200);
+      assertStringIncludes(response.body.text || "", "not authorized to vote");
+
+      // Clean up the test vote
+      try {
+        await prisma.vote.delete({
+          where: {
+            id: vote.id,
+          },
+        });
+      } catch (error) {
+        console.error("Error cleaning up restricted test vote:", error);
+      }
+    });
+
     it("builds modal with user's previous votes", async () => {
       // Create a new vote since the previous one was ended
       const vote = await votesService.createVote({

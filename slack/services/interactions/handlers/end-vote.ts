@@ -26,7 +26,7 @@ export async function handleEndVote(
     // Check if the user is the creator of the vote
     if (vote.creatorId !== payload.user.id) {
       return createErrorResponse(
-        "Only the creator of the vote can end it.",
+        `Only the creator of this vote (<@${vote.creatorId}>) can end it. You don't have permission to perform this action.`,
         "Permission Denied",
       );
     }

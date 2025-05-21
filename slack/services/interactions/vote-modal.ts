@@ -4,7 +4,22 @@ import { createVotingModalView } from "./templates.ts";
 import logger from "@utils/logger.ts";
 import { votesService, workspaceService } from "@db/prisma.ts";
 import { createErrorResponse } from "@slack/services/interactions/vote-utils.ts";
-import { NotFoundError } from "@db/errors.ts";
+import { NotFoundError, UnauthorizedError } from "@db/errors.ts";
+
+// Validate if user is allowed to vote
+function validateUserAllowed(vote: { allowedVoters: unknown }, userId: string): void {
+  const allowedVoters = vote.allowedVoters as string[] | null;
+  if (
+    allowedVoters &&
+    Array.isArray(allowedVoters) &&
+    allowedVoters.length > 0 &&
+    !allowedVoters.includes(userId)
+  ) {
+    throw new UnauthorizedError(
+      "You are not authorized to vote in this poll. Only selected users can vote.",
+    );
+  }
+}
 
 // Handle opening the vote modal
 export async function handleOpenVoteModal(
@@ -33,6 +48,9 @@ export async function handleOpenVoteModal(
         "Vote Ended",
       );
     }
+
+    // Check if the user is allowed to vote
+    validateUserAllowed(vote, payload.user.id);
 
     // Get the workspace to get the access token
     const workspaceToken = await workspaceService.getWorkspaceToken(
@@ -99,6 +117,10 @@ export async function handleOpenVoteModal(
 
     if (error instanceof NotFoundError) {
       return createErrorResponse(error.message, "Not Found");
+    }
+
+    if (error instanceof UnauthorizedError) {
+      return createErrorResponse(error.message, "Unauthorized");
     }
 
     return createErrorResponse(
