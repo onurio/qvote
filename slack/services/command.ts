@@ -1,6 +1,43 @@
 import { Workspace } from "generated/index.d.ts";
 import { openVoteCreationModal } from "./interactions.ts";
 import { createErrorMessageBlocks, createInfoMessageBlocks, SlackBlock } from "./blocks.ts";
+import logger from "@utils/logger.ts";
+
+/**
+ * Check if the app is in a channel
+ * @param channelId The ID of the channel to check
+ * @param workspaceToken The workspace token for API access
+ * @returns An object with isInChannel and error properties
+ */
+export async function checkIfAppInChannel(
+  channelId: string,
+  workspaceToken: string,
+): Promise<{ isInChannel: boolean; error?: string }> {
+  try {
+    logger.info("Checking if app is in the channel", { channelId });
+
+    const conversationsInfoResponse = await fetch(
+      `https://slack.com/api/conversations.info?channel=${channelId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${workspaceToken}`,
+        },
+      },
+    );
+
+    const conversationsInfo = await conversationsInfoResponse.json();
+
+    if (!conversationsInfo.ok) {
+      logger.warn("Failed to get channel info", { error: conversationsInfo.error });
+      return { isInChannel: false, error: conversationsInfo.error };
+    }
+
+    return { isInChannel: true };
+  } catch (error) {
+    logger.error("Error checking if app is in channel", error);
+    return { isInChannel: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
 
 // Define the structure of a Slack slash command request
 export interface SlackRequest {
@@ -75,6 +112,27 @@ export async function handleQVoteCommand(
   }
 
   try {
+    // Check if the app is in the channel before opening the modal
+    const channelCheck = await checkIfAppInChannel(request.channelId, workspace.accessToken);
+
+    if (!channelCheck.isInChannel) {
+      // If we can't get info about the channel, we're likely not in it
+      const message = channelCheck.error
+        ? "I need to be in this channel to create a vote. Please add me with /invite @qvote, then try again."
+        : "I couldn't verify if I have access to this channel. Please make sure I'm invited with /invite @qvote, then try again.";
+
+      const title = channelCheck.error ? "App Not in Channel" : "Channel Access Error";
+
+      return {
+        status: 200,
+        body: {
+          response_type: "ephemeral",
+          text: message,
+          blocks: createErrorMessageBlocks(title, message),
+        },
+      };
+    }
+
     // Open a modal for the user to enter vote details
     const modalResponse = await openVoteCreationModal(
       request.triggerId,
