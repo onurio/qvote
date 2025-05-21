@@ -505,7 +505,7 @@ describe(
         );
       });
 
-      it("does not create vote if channel message fails", async () => {
+      it("creates vote even if channel message fails", async () => {
         // Mock the Slack API calls - this time with chat.postMessage failing
         const originalFetch = globalThis.fetch;
         globalThis.fetch = (
@@ -560,7 +560,7 @@ describe(
           assertEquals(response.status, 200);
           assertEquals(response.body.response_action, "update");
 
-          // Verify vote was NOT created in the database
+          // Verify vote WAS created in the database despite channel posting failure
           const votes = await prisma.vote.findMany({
             where: {
               workspaceId: workspaceId,
@@ -570,8 +570,8 @@ describe(
 
           assertEquals(
             votes.length,
-            0,
-            "Vote should not be created when channel message fails",
+            1,
+            "Vote should be created even when channel message fails",
           );
         } finally {
           // Restore original fetch
