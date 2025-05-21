@@ -4,38 +4,44 @@ import { createErrorMessageBlocks, createInfoMessageBlocks, SlackBlock } from ".
 import logger from "@utils/logger.ts";
 
 /**
- * Check if the app is in a channel
- * @param channelId The ID of the channel to check
+ * Try to join a channel
+ * @param channelId The ID of the channel to join
  * @param workspaceToken The workspace token for API access
- * @returns An object with isInChannel and error properties
+ * @returns An object with success and error properties
  */
-export async function checkIfAppInChannel(
+export async function joinChannel(
   channelId: string,
   workspaceToken: string,
-): Promise<{ isInChannel: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string }> {
   try {
-    logger.info("Checking if app is in the channel", { channelId });
+    logger.info("Attempting to join channel", { channelId });
 
-    const conversationsInfoResponse = await fetch(
-      `https://slack.com/api/conversations.info?channel=${channelId}`,
+    const joinResponse = await fetch(
+      "https://slack.com/api/conversations.join",
       {
+        method: "POST",
         headers: {
+          "Content-Type": "application/json; charset=utf-8",
           Authorization: `Bearer ${workspaceToken}`,
         },
+        body: JSON.stringify({
+          channel: channelId,
+        }),
       },
     );
 
-    const conversationsInfo = await conversationsInfoResponse.json();
+    const joinResult = await joinResponse.json();
 
-    if (!conversationsInfo.ok) {
-      logger.warn("Failed to get channel info", { error: conversationsInfo.error });
-      return { isInChannel: false, error: conversationsInfo.error };
+    // Note: If we're already in the channel, Slack will return { ok: true, already_in_channel: true }
+    if (!joinResult.ok) {
+      logger.warn("Failed to join channel", { error: joinResult.error });
+      return { success: false, error: joinResult.error };
     }
 
-    return { isInChannel: true };
+    return { success: true };
   } catch (error) {
-    logger.error("Error checking if app is in channel", error);
-    return { isInChannel: false, error: error instanceof Error ? error.message : String(error) };
+    logger.error("Error joining channel", error);
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -112,25 +118,40 @@ export async function handleQVoteCommand(
   }
 
   try {
-    // Check if the app is in the channel before opening the modal
-    const channelCheck = await checkIfAppInChannel(request.channelId, workspace.accessToken);
+    // Try to join the channel before opening the modal
+    const joinResult = await joinChannel(request.channelId, workspace.accessToken);
 
-    if (!channelCheck.isInChannel) {
-      // If we can't get info about the channel, we're likely not in it
-      const message = channelCheck.error
-        ? "I need to be in this channel to create a vote. Please add me with /invite @qvote, then try again."
-        : "I couldn't verify if I have access to this channel. Please make sure I'm invited with /invite @qvote, then try again.";
+    // If we couldn't join the channel, it's likely a permission issue
+    if (!joinResult.success) {
+      // Only show an error if we couldn't join for a reason other than already_in_channel
+      if (
+        joinResult.error &&
+        joinResult.error !== "already_in_channel" &&
+        joinResult.error !== "method_not_supported_for_channel_type"
+      ) {
+        // For most errors, suggest inviting the bot
+        const message =
+          "I couldn't join this channel. Please add me with /invite @qvote, then try again.";
 
-      const title = channelCheck.error ? "App Not in Channel" : "Channel Access Error";
+        logger.warn("Failed to join channel", {
+          error: joinResult.error,
+          channel: request.channelId,
+        });
 
-      return {
-        status: 200,
-        body: {
-          response_type: "ephemeral",
-          text: message,
-          blocks: createErrorMessageBlocks(title, message),
-        },
-      };
+        return {
+          status: 200,
+          body: {
+            response_type: "ephemeral",
+            text: message,
+            blocks: createErrorMessageBlocks("Cannot Join Channel", message),
+          },
+        };
+      }
+
+      // For already_in_channel we don't need to show an error
+      logger.info("Already in channel or private channel type", { channel: request.channelId });
+    } else {
+      logger.info("Successfully joined channel", { channel: request.channelId });
     }
 
     // Open a modal for the user to enter vote details

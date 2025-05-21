@@ -1,5 +1,5 @@
 import { assertEquals, assertStringIncludes } from "jsr:@std/assert";
-import { checkIfAppInChannel, handleQVoteCommand, SlackRequest } from "./command.ts";
+import { handleQVoteCommand, joinChannel, SlackRequest } from "./command.ts";
 
 // Tests for the command handler
 Deno.test(
@@ -55,12 +55,12 @@ Deno.test(
   },
 );
 
-// Test for the checkIfAppInChannel function
-Deno.test("checkIfAppInChannel detects if app is in channel", async () => {
+// Test for the joinChannel function
+Deno.test("joinChannel successfully joins a channel", async () => {
   // Save original fetch function
   const originalFetch = globalThis.fetch;
 
-  // Mock fetch for successful channel check
+  // Mock fetch for successful channel join
   globalThis.fetch = (_url: string | URL | Request, _init?: RequestInit) => {
     return Promise.resolve({
       ok: true,
@@ -71,10 +71,10 @@ Deno.test("checkIfAppInChannel detects if app is in channel", async () => {
 
   try {
     // Call the function
-    const result = await checkIfAppInChannel("C123", "xoxp-test-token");
+    const result = await joinChannel("C123", "xoxp-test-token");
 
     // Verify the result
-    assertEquals(result.isInChannel, true);
+    assertEquals(result.success, true);
     assertEquals(result.error, undefined);
   } finally {
     // Restore original fetch
@@ -82,26 +82,52 @@ Deno.test("checkIfAppInChannel detects if app is in channel", async () => {
   }
 });
 
-Deno.test("checkIfAppInChannel detects if app is not in channel", async () => {
+Deno.test("joinChannel handles already in channel case", async () => {
   // Save original fetch function
   const originalFetch = globalThis.fetch;
 
-  // Mock fetch for failed channel check
+  // Mock fetch for already in channel
   globalThis.fetch = (_url: string | URL | Request, _init?: RequestInit) => {
     return Promise.resolve({
       ok: true,
       status: 200,
-      json: () => Promise.resolve({ ok: false, error: "not_in_channel" }),
+      json: () => Promise.resolve({ ok: true, already_in_channel: true }),
     } as Response);
   };
 
   try {
     // Call the function
-    const result = await checkIfAppInChannel("C123", "xoxp-test-token");
+    const result = await joinChannel("C123", "xoxp-test-token");
+
+    // Verify the result - still successful even if already in channel
+    assertEquals(result.success, true);
+    assertEquals(result.error, undefined);
+  } finally {
+    // Restore original fetch
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("joinChannel handles failed join", async () => {
+  // Save original fetch function
+  const originalFetch = globalThis.fetch;
+
+  // Mock fetch for failed channel join
+  globalThis.fetch = (_url: string | URL | Request, _init?: RequestInit) => {
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ok: false, error: "channel_not_found" }),
+    } as Response);
+  };
+
+  try {
+    // Call the function
+    const result = await joinChannel("C123", "xoxp-test-token");
 
     // Verify the result
-    assertEquals(result.isInChannel, false);
-    assertEquals(result.error, "not_in_channel");
+    assertEquals(result.success, false);
+    assertEquals(result.error, "channel_not_found");
   } finally {
     // Restore original fetch
     globalThis.fetch = originalFetch;
@@ -109,7 +135,7 @@ Deno.test("checkIfAppInChannel detects if app is not in channel", async () => {
 });
 
 Deno.test(
-  "handleQVoteCommand shows error when app is not in channel",
+  "handleQVoteCommand shows error when app cannot join channel",
   async () => {
     // Mock workspace object
     const mockWorkspace = {
@@ -133,13 +159,20 @@ Deno.test(
       triggerId: "trigger123",
     };
 
-    // Save original fetch function and mock it to simulate app not in channel
+    // Save original fetch function and mock it to simulate join failure
     const originalFetch = globalThis.fetch;
     globalThis.fetch = (_url: string | URL | Request, _init?: RequestInit) => {
+      if (_url.toString().includes("conversations.join")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ ok: false, error: "channel_not_found" }),
+        } as Response);
+      }
       return Promise.resolve({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ ok: false, error: "not_in_channel" }),
+        json: () => Promise.resolve({ ok: true }),
       } as Response);
     };
 
@@ -147,12 +180,12 @@ Deno.test(
       // Call the function
       const result = await handleQVoteCommand(request, mockWorkspace);
 
-      // Verify the result - should have error about not being in channel
+      // Verify the result - should have error about not being able to join channel
       assertEquals(result.status, 200);
       assertEquals(result.body?.response_type, "ephemeral");
 
       const responseText = JSON.stringify(result.body);
-      assertStringIncludes(responseText, "App Not in Channel");
+      assertStringIncludes(responseText, "Cannot Join Channel");
       assertStringIncludes(responseText, "/invite @qvote");
     } finally {
       // Restore original fetch function
@@ -160,3 +193,12 @@ Deno.test(
     }
   },
 );
+
+// Skip this test since we can't easily test the successful path without mocking dependencies
+// Deno.test({
+//   name: "handleQVoteCommand doesn't show error when app is already in channel",
+//   ignore: true,
+//   fn: async () => {
+//     // Code for the test...
+//   }
+// });
