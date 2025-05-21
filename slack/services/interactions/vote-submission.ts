@@ -31,7 +31,11 @@ const validateUserAllowed = (vote: Vote, userId: string) => {
     !allowedVoters.includes(userId)
   ) {
     throw new UnauthorizedError(
-      "You are not authorized to vote in this poll. Only selected users can vote.",
+      `You are not authorized to vote in this poll. Only selected users can vote.${
+        vote.creatorId
+          ? ` Please contact <@${vote.creatorId}> (the creator of this vote) if you believe this is a mistake.`
+          : ""
+      }`,
     );
   }
 };

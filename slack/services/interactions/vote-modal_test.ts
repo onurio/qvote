@@ -177,26 +177,65 @@ describe(
       });
 
       const action = createMockAction(`vote_${vote.id}`);
-      const mockPayload = createMockPayload(unauthorizedUserId);
+      // Add response_url to the payload
+      const mockPayloadWithResponseUrl = {
+        ...createMockPayload(unauthorizedUserId),
+        response_url: "https://hooks.slack.com/actions/fake_response_url",
+      };
 
-      const response = await handleOpenVoteModal(
-        action,
-        mockPayload,
-        workspaceId,
-      );
+      // Mock fetch for the response_url call
+      const originalFetch = globalThis.fetch;
+      let responseUrlCalled = false;
 
-      assertEquals(response.status, 200);
-      assertStringIncludes(response.body.text || "", "not authorized to vote");
-
-      // Clean up the test vote
       try {
-        await prisma.vote.delete({
-          where: {
-            id: vote.id,
-          },
-        });
-      } catch (error) {
-        console.error("Error cleaning up restricted test vote:", error);
+        globalThis.fetch = (
+          url: string | URL | Request,
+          init?: RequestInit,
+        ) => {
+          if (url === mockPayloadWithResponseUrl.response_url) {
+            responseUrlCalled = true;
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: () => Promise.resolve({ ok: true }),
+            } as Response);
+          }
+
+          // For other fetch calls, use original implementation
+          // @ts-ignore // Ignore TypeScript error for fetch
+          return originalFetch(url, init);
+        };
+
+        const response = await handleOpenVoteModal(
+          action,
+          mockPayloadWithResponseUrl,
+          workspaceId,
+        );
+
+        assertEquals(response.status, 200);
+        assertStringIncludes(
+          response.body.text || "",
+          "not authorized to vote",
+        );
+        assertEquals(
+          responseUrlCalled,
+          true,
+          "Should call response_url with error message",
+        );
+      } finally {
+        // Restore original fetch
+        globalThis.fetch = originalFetch;
+
+        // Clean up the test vote
+        try {
+          await prisma.vote.delete({
+            where: {
+              id: vote.id,
+            },
+          });
+        } catch (error) {
+          console.error("Error cleaning up restricted test vote:", error);
+        }
       }
     });
 

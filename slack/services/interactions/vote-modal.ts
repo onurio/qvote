@@ -50,7 +50,43 @@ export async function handleOpenVoteModal(
     }
 
     // Check if the user is allowed to vote
-    validateUserAllowed(vote, payload.user.id);
+    try {
+      validateUserAllowed(vote, payload.user.id);
+    } catch (error) {
+      if (error instanceof UnauthorizedError) {
+        logger.warn("Unauthorized vote attempt", {
+          voteId,
+          userId: payload.user.id,
+          hasResponseUrl: !!payload.response_url,
+        });
+
+        // If we have a response_url, use it directly for better error visibility
+        if (payload.response_url) {
+          try {
+            await fetch(payload.response_url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                text:
+                  `⛔ *Unauthorized*: You are not authorized to vote in this poll. Only selected users can vote.${
+                    vote.creatorId
+                      ? ` Please contact <@${vote.creatorId}> (the creator of this vote) if you believe this is a mistake.`
+                      : ""
+                  }`,
+                response_type: "ephemeral",
+                replace_original: false,
+              }),
+            });
+            logger.info("Sent error via response_url", { voteId });
+          } catch (fetchError) {
+            logger.error("Error sending to response_url", fetchError);
+          }
+        }
+
+        throw error;
+      }
+      throw error;
+    }
 
     // Get the workspace to get the access token
     const workspaceToken = await workspaceService.getWorkspaceToken(
