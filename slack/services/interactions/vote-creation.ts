@@ -31,59 +31,6 @@ export async function handleCreateVoteSubmission(
       : {};
     logger.debug("Metadata", metadata);
 
-    // Check if the app is in the channel before creating the vote
-    try {
-      logger.info("Checking if app is in the channel", {
-        channelId: metadata.channelId,
-      });
-
-      const conversationsInfoResponse = await fetch(
-        `https://slack.com/api/conversations.info?channel=${metadata.channelId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${workspaceToken}`,
-          },
-        },
-      );
-
-      const conversationsInfo = await conversationsInfoResponse.json();
-
-      // If we can't get info about the channel, we're likely not in it
-      if (!conversationsInfo.ok) {
-        logger.warn("Failed to get channel info", {
-          error: conversationsInfo.error,
-        });
-
-        // If we have a response_url, use it to inform the user
-        if (payload.response_url) {
-          const errorMessage =
-            `I couldn't create your vote because I'm not in the channel. Please add me to the channel first with:\n\n\`/invite @qvote\`\n\nThen try creating your vote again.`;
-
-          await sendResponseUrlMessage(payload.response_url, errorMessage, {
-            title: "App Not in Channel",
-            isError: true,
-          });
-
-          logger.info("Sent channel error via response_url");
-        }
-
-        // Return error response
-        return {
-          status: 200,
-          body: {
-            response_action: "errors",
-            errors: {
-              vote_title:
-                "I couldn't create your vote because I'm not in the channel. Please add me to the channel first with /invite @qvote",
-            },
-          },
-        };
-      }
-    } catch (channelCheckError) {
-      logger.error("Error checking if app is in channel", channelCheckError);
-      // Continue despite the error, we'll handle posting failures below
-    }
-
     // Extract values from the form
     const title = state.vote_title.vote_title_input.value;
     const description = state.vote_description?.vote_description_input?.value || "";
