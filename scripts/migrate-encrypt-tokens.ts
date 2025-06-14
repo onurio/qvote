@@ -5,10 +5,12 @@ import { closeDatabase, connectToDatabase, prisma } from "@db/prisma.ts";
 import { tokenEncryption } from "@utils/encryption.ts";
 import logger from "@utils/logger.ts";
 
-// Load environment variables
+// Load environment variables - only load what we need for migration
+// Don't load from .env.example to avoid reserved variables like PORT
 await load({
   export: true,
   allowEmptyValues: true,
+  examplePath: null, // Don't load from .env.example
 });
 
 async function migrateTokens() {
