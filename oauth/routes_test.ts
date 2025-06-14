@@ -17,7 +17,7 @@ const createTestApp = () => {
 // Test auth URL result
 const TEST_AUTH_RESULT = {
   url:
-    "https://slack.com/oauth/v2/authorize?client_id=test_client_id&scope=commands%20chat:write%20channels:read%20channels:history&redirect_uri=http://localhost:8080/oauth/callback&state=test-uuid-123",
+    "https://slack.com/oauth/v2/authorize?client_id=test_client_id&scope=commands%20chat:write%20channels:join&redirect_uri=http://localhost:8080/oauth/callback&state=test-uuid-123",
   state: "test-uuid-123",
 };
 

@@ -11,7 +11,7 @@ Deno.test("generateAuthUrl creates proper Slack OAuth URL", () => {
   });
 
   try {
-    const { url } = authService.generateAuthUrl();
+    const { url, state: stateToken } = authService.generateAuthUrl();
 
     // Check URL structure
     assertMatch(
@@ -23,24 +23,28 @@ Deno.test("generateAuthUrl creates proper Slack OAuth URL", () => {
     // Check required parameters
     const urlObj = new URL(url);
     assertEquals(urlObj.searchParams.get("client_id"), "test_client_id");
+    // Note: redirect_uri is not included in current implementation
     // assertEquals(
     //   urlObj.searchParams.get("redirect_uri"),
-    //   "https://example.com/callback",
+    //   "https://example.com/callback"
     // );
-    assertEquals(urlObj.searchParams.get("scope"), "commands chat:write");
+    assertEquals(
+      urlObj.searchParams.get("scope"),
+      "commands chat:write channels:join",
+    );
 
     // Verify state parameter is a UUID
-    // const state = urlObj.searchParams.get("state");
-    // assertEquals(
-    //   state,
-    //   stateToken,
-    //   "State token should match the returned token",
-    // );
-    // assertMatch(
-    //   state || "",
-    //   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-    //   "State should be a UUID"
-    // );
+    const state = urlObj.searchParams.get("state");
+    assertEquals(
+      state,
+      stateToken,
+      "State token should match the returned token",
+    );
+    assertMatch(
+      state || "",
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      "State should be a UUID",
+    );
   } finally {
     envStub.restore();
   }

@@ -63,7 +63,23 @@ function setupServer() {
     const path = ctx.request.url.pathname;
     if (path.startsWith("/static/")) {
       logger.info(`Serving static file: ${path}`);
-      const filePath = `.${path}`;
+
+      // Extract the relative path after /static/
+      const relativePath = path.substring("/static/".length);
+
+      // Validate the path to prevent directory traversal
+      if (
+        relativePath.includes("..") || relativePath.includes("//") || relativePath.startsWith("/")
+      ) {
+        logger.warn(`Attempted path traversal: ${path}`);
+        ctx.response.status = 400;
+        ctx.response.body = "Invalid path";
+        return;
+      }
+
+      // Construct safe file path
+      const filePath = `./static/${relativePath}`;
+
       try {
         const fileContent = await Deno.readFile(filePath);
 

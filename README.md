@@ -26,7 +26,7 @@ by spending "voice credits" to influence the outcome.
 1. Clone this repository
 2. Copy `.env.example` to `.env` and fill in your Slack app credentials and database details
 3. Create a Slack app at https://api.slack.com/apps
-   - Add the necessary OAuth scopes: `commands`, `chat:write`, `channels:read`
+   - Add the necessary OAuth scopes: `commands`, `chat:write`, `channels:join`
    - Set the redirect URL to your callback URL (e.g., `http://localhost:8080/oauth/callback`)
 
 ### Database Setup
