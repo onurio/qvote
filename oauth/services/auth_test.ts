@@ -160,7 +160,17 @@ Deno.test("exchangeCodeForToken handles network errors", async () => {
     const result = await authService.exchangeCodeForToken("test_code");
 
     assertEquals(result.success, false);
-    assertEquals(result.error, "Server error during OAuth process");
+    // Error should be sanitized
+    assertEquals(typeof result.error, "string");
+    // In production, this would be sanitized, but in tests it shows the full error
+    const isDevelopment = Deno.env.get("ENV") !== "production";
+    if (isDevelopment) {
+      // In development, we get the full error details
+      assertEquals(result.error!.includes("Network error"), true);
+    } else {
+      // In production, we get sanitized error
+      assertEquals(result.error, "An unexpected error occurred");
+    }
   } finally {
     envStub.restore();
     globalThis.fetch = originalFetch;

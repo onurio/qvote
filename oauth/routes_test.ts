@@ -5,6 +5,7 @@ import { authService } from "./services/auth.ts";
 import { workspaceService } from "@db/prisma.ts";
 import { stub } from "jsr:@std/testing/mock";
 import { TokenExchangeResult } from "./services/auth.ts";
+import { tokenEncryption } from "../utils/encryption.ts";
 
 // Create test app
 const createTestApp = () => {
@@ -143,7 +144,11 @@ Deno.test({
       // Verify workspace was saved - can use the actual database
       const workspace = await workspaceService.getWorkspaceByTeamId("T12345");
       assertEquals(workspace?.teamName, "Test Team");
-      assertEquals(workspace?.accessToken, "xoxb-test-token");
+      // Token should be encrypted in storage, so decrypt it to verify
+      if (workspace?.accessToken) {
+        const decryptedToken = await tokenEncryption.decrypt(workspace.accessToken);
+        assertEquals(decryptedToken, "xoxb-test-token");
+      }
       assertEquals(workspace?.botUserId, "U12345");
 
       // Clean up test data

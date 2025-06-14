@@ -5,6 +5,7 @@ import { createVoteCreationModalView, createVoteSuccessModalView } from "./templ
 import logger from "@utils/logger.ts";
 import { votesService, workspaceService } from "@db/prisma.ts";
 import { createErrorResponse } from "@slack/services/interactions/vote-utils.ts";
+import { postToSlackApi } from "@utils/http-client.ts";
 
 // Handle the vote creation submission
 export async function handleCreateVoteSubmission(
@@ -165,17 +166,13 @@ export async function handleCreateVoteSubmission(
 
     // First try to join the channel
     try {
-      const joinResponse = await fetch(
+      const joinResponse = await postToSlackApi(
         "https://slack.com/api/conversations.join",
         {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json; charset=utf-8",
-            Authorization: `Bearer ${workspaceToken}`,
-          },
-          body: JSON.stringify({
-            channel: metadata.channelId,
-          }),
+          channel: metadata.channelId,
+        },
+        {
+          Authorization: `Bearer ${workspaceToken}`,
         },
       );
 
@@ -187,18 +184,17 @@ export async function handleCreateVoteSubmission(
     }
 
     // Now post the message
-    const postResponse = await fetch("https://slack.com/api/chat.postMessage", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        Authorization: `Bearer ${workspaceToken}`,
-      },
-      body: JSON.stringify({
+    const postResponse = await postToSlackApi(
+      "https://slack.com/api/chat.postMessage",
+      {
         channel: metadata.channelId,
         blocks: blocks,
         text: `New vote: ${title}`, // Fallback text if blocks don't render
-      }),
-    });
+      },
+      {
+        Authorization: `Bearer ${workspaceToken}`,
+      },
+    );
 
     const postResult = await postResponse.json();
     logger.debug("Post message result", postResult);
@@ -209,13 +205,9 @@ export async function handleCreateVoteSubmission(
 
       // Try to send an ephemeral message to the user
       try {
-        await fetch("https://slack.com/api/chat.postEphemeral", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json; charset=utf-8",
-            Authorization: `Bearer ${workspaceToken}`,
-          },
-          body: JSON.stringify({
+        await postToSlackApi(
+          "https://slack.com/api/chat.postEphemeral",
+          {
             channel: metadata.channelId,
             user: payload.user.id,
             text:
@@ -224,8 +216,11 @@ export async function handleCreateVoteSubmission(
               "Vote Created - Channel Issue",
               `Your vote "${title}" was created, but I couldn't post it to the channel. Make sure to invite me to the channel first with /invite @qvote.`,
             ),
-          }),
-        });
+          },
+          {
+            Authorization: `Bearer ${workspaceToken}`,
+          },
+        );
       } catch (ephemeralError) {
         logger.error("Failed to send ephemeral message", ephemeralError);
       }
@@ -274,17 +269,16 @@ export async function openVoteCreationModal(
     const view = createVoteCreationModalView(channelId, userId);
 
     // Open the modal with Slack API
-    const response = await fetch("https://slack.com/api/views.open", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        Authorization: `Bearer ${workspaceToken}`,
-      },
-      body: JSON.stringify({
+    const response = await postToSlackApi(
+      "https://slack.com/api/views.open",
+      {
         trigger_id: triggerId,
         view,
-      }),
-    });
+      },
+      {
+        Authorization: `Bearer ${workspaceToken}`,
+      },
+    );
 
     const result = await response.json();
 

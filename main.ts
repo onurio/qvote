@@ -8,6 +8,9 @@ import { closeDatabase, connectToDatabase } from "@db/prisma.ts";
 import { getHomePage, getPrivacyPolicyPage, getTermsOfServicePage } from "@ui/pages.ts";
 import logger from "@utils/logger.ts";
 import { createSlackVerifier } from "@middleware/slack-verification.ts";
+import { createGeneralRateLimit } from "@middleware/rate-limit.ts";
+import { securityHeaders } from "@middleware/security-headers.ts";
+import { sanitizeApiError } from "@utils/error-sanitization.ts";
 
 // Load environment variables from .env file
 await load({ export: true });
@@ -26,9 +29,36 @@ async function errorHandlingMiddleware(
   try {
     await next();
   } catch (err) {
-    logger.error("Request processing error", err);
-    ctx.response.status = 500;
-    ctx.response.body = "Internal server error";
+    const path = ctx.request.url.pathname;
+    const sanitizedError = sanitizeApiError(
+      err,
+      `${ctx.request.method} ${path}`,
+    );
+
+    // Set appropriate status code based on error type
+    let status = 500;
+    if (err instanceof Error) {
+      switch (err.name) {
+        case "ValidationError":
+          status = 400;
+          break;
+        case "UnauthorizedError":
+          status = 401;
+          break;
+        case "NotFoundError":
+          status = 404;
+          break;
+        case "TimeoutError":
+          status = 408;
+          break;
+        case "RateLimitError":
+          status = 429;
+          break;
+      }
+    }
+
+    ctx.response.status = status;
+    ctx.response.body = sanitizedError;
   }
 }
 
@@ -58,6 +88,12 @@ function setupServer() {
   app.use(loggingMiddleware);
   app.use(errorHandlingMiddleware);
 
+  // Add security headers
+  app.use(securityHeaders());
+
+  // Add rate limiting
+  app.use(createGeneralRateLimit());
+
   // Serve static files
   app.use(async (ctx, next) => {
     const path = ctx.request.url.pathname;
@@ -69,7 +105,9 @@ function setupServer() {
 
       // Validate the path to prevent directory traversal
       if (
-        relativePath.includes("..") || relativePath.includes("//") || relativePath.startsWith("/")
+        relativePath.includes("..") ||
+        relativePath.includes("//") ||
+        relativePath.startsWith("/")
       ) {
         logger.warn(`Attempted path traversal: ${path}`);
         ctx.response.status = 400;
@@ -121,11 +159,11 @@ function setupServer() {
   app.use(router.routes());
   app.use(router.allowedMethods());
 
-  // OAuth routes (for authentication)
+  // OAuth routes (for authentication) with stricter rate limiting and API security headers
   app.use(oauthRouter.routes());
   app.use(oauthRouter.allowedMethods());
 
-  // Slack API routes
+  // Slack API routes with command-specific rate limiting and API security headers
   app.use(slackRouter.routes());
   app.use(slackRouter.allowedMethods());
 

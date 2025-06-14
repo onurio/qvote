@@ -2,6 +2,8 @@ import { Workspace } from "generated/index.d.ts";
 import { openVoteCreationModal } from "./interactions.ts";
 import { createErrorMessageBlocks, createInfoMessageBlocks, SlackBlock } from "./blocks.ts";
 import logger from "@utils/logger.ts";
+import { postToSlackApi } from "@utils/http-client.ts";
+import { sanitizeUserError } from "@utils/error-sanitization.ts";
 
 /**
  * Try to join a channel
@@ -16,17 +18,13 @@ export async function joinChannel(
   try {
     logger.info("Attempting to join channel", { channelId });
 
-    const joinResponse = await fetch(
+    const joinResponse = await postToSlackApi(
       "https://slack.com/api/conversations.join",
       {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          Authorization: `Bearer ${workspaceToken}`,
-        },
-        body: JSON.stringify({
-          channel: channelId,
-        }),
+        channel: channelId,
+      },
+      {
+        Authorization: `Bearer ${workspaceToken}`,
       },
     );
 
@@ -182,8 +180,8 @@ export async function handleQVoteCommand(
       status: 200,
     };
   } catch (error) {
-    console.error("Error opening vote creation modal:", error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error("Error opening vote creation modal:", error);
+    const errorMessage = sanitizeUserError(error, "vote creation modal");
     return {
       status: 200,
       body: {

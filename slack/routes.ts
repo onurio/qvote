@@ -5,8 +5,14 @@ import { handleSlackEvent, SlackEvent } from "./services/events.ts";
 import { validateSlackWorkspace } from "../middleware/slack.ts";
 import logger from "@utils/logger.ts";
 import { workspaceService } from "@db/prisma.ts";
+import { apiSecurityHeaders } from "@middleware/security-headers.ts";
+import { createSlackCommandRateLimit } from "@middleware/rate-limit.ts";
 
 const router = new Router();
+
+// Apply Slack-specific middleware
+router.use(apiSecurityHeaders());
+router.use(createSlackCommandRateLimit());
 
 // Handle Slack slash commands
 // Use middleware to validate the request and workspace permissions

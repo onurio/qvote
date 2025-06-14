@@ -3,6 +3,7 @@ import { WorkspaceService } from "./workspace.ts";
 // @ts-types="generated/index.d.ts"
 import { PrismaClient } from "generated/index.js";
 import { afterAll, beforeAll, describe, it } from "jsr:@std/testing/bdd";
+import { tokenEncryption } from "../utils/encryption.ts";
 
 describe(
   "WorkspaceService",
@@ -45,7 +46,9 @@ describe(
       // Verify result
       assertEquals(result.teamId, testTeamId);
       assertEquals(result.teamName, testTeamName);
-      assertEquals(result.accessToken, testAccessToken);
+      // Token should be encrypted in the database, so decrypt it to verify
+      const decryptedToken = await tokenEncryption.decrypt(result.accessToken);
+      assertEquals(decryptedToken, testAccessToken);
       assertEquals(result.botUserId, testBotUserId);
 
       // Update the workspace with new values
@@ -71,8 +74,10 @@ describe(
         updatedName,
         "Team name should be updated",
       );
+      // Token should be encrypted, so decrypt it to verify
+      const decryptedUpdatedToken = await tokenEncryption.decrypt(updateResult.accessToken);
       assertEquals(
-        updateResult.accessToken,
+        decryptedUpdatedToken,
         updatedToken,
         "Access token should be updated",
       );
@@ -98,7 +103,11 @@ describe(
       // Verify result
       assertEquals(result?.teamId, testTeamId);
       assertEquals(result?.teamName, testTeamName);
-      assertEquals(result?.accessToken, testAccessToken);
+      // Token should be encrypted, so decrypt it to verify
+      if (result?.accessToken) {
+        const decryptedToken = await tokenEncryption.decrypt(result.accessToken);
+        assertEquals(decryptedToken, testAccessToken);
+      }
       assertEquals(result?.botUserId, testBotUserId);
 
       // Test retrieving a non-existent workspace
@@ -142,7 +151,9 @@ describe(
       );
       if (testWorkspace) {
         assertEquals(testWorkspace.teamName, testTeamName);
-        assertEquals(testWorkspace.accessToken, testAccessToken);
+        // Token should be encrypted, so decrypt it to verify
+        const decryptedToken = await tokenEncryption.decrypt(testWorkspace.accessToken);
+        assertEquals(decryptedToken, testAccessToken);
         assertEquals(testWorkspace.botUserId, testBotUserId);
       }
     });

@@ -1,5 +1,7 @@
 // OAuth service for Slack authentication
 import logger from "@utils/logger.ts";
+import { fetchWithTimeout } from "@utils/http-client.ts";
+import { sanitizeError } from "@utils/error-sanitization.ts";
 
 // Define the token exchange response type
 export type TokenExchangeResult = {
@@ -66,8 +68,8 @@ export class AuthService {
       //   Deno.env.get("SLACK_REDIRECT_URI") ||
       //   "http://localhost:8080/oauth/callback";
 
-      // Exchange code for access token
-      const response = await fetch("https://slack.com/api/oauth.v2.access", {
+      // Exchange code for access token with timeout
+      const response = await fetchWithTimeout("https://slack.com/api/oauth.v2.access", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -78,6 +80,7 @@ export class AuthService {
           code: code,
           // redirect_uri: redirectUri,
         }),
+        timeout: 10000, // 10 second timeout for OAuth
       });
 
       const data = await response.json();
@@ -101,9 +104,10 @@ export class AuthService {
       };
     } catch (error) {
       logger.error("Error during OAuth flow", error);
+      const sanitizedMessage = sanitizeError(error, "OAuth token exchange");
       return {
         success: false,
-        error: "Server error during OAuth process",
+        error: sanitizedMessage,
       };
     }
   }

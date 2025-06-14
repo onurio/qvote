@@ -8,6 +8,7 @@ import {
   sendResponseUrlMessage,
 } from "@slack/services/interactions/vote-utils.ts";
 import { NotFoundError, UnauthorizedError } from "@db/errors.ts";
+import { postToSlackApi } from "@utils/http-client.ts";
 
 // Validate if user is allowed to vote
 function validateUserAllowed(vote: { allowedVoters: unknown }, userId: string): void {
@@ -118,17 +119,16 @@ export async function handleOpenVoteModal(
     });
 
     // Call the Slack API to open the modal
-    const response = await fetch("https://slack.com/api/views.open", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        Authorization: `Bearer ${workspaceToken}`,
-      },
-      body: JSON.stringify({
+    const response = await postToSlackApi(
+      "https://slack.com/api/views.open",
+      {
         trigger_id: payload.trigger_id,
         view,
-      }),
-    });
+      },
+      {
+        Authorization: `Bearer ${workspaceToken}`,
+      },
+    );
 
     const result = await response.json();
 

@@ -3,12 +3,15 @@ import { PrismaClient } from "generated/index.js";
 import logger from "@utils/logger.ts";
 import { WorkspaceNotFoundError } from "@db/errors.ts";
 import { PrismaKnownRequestError } from "@prisma/client/runtime";
+import { TokenEncryption, tokenEncryption } from "@utils/encryption.ts";
 
 export class WorkspaceService {
   private db: PrismaClient;
+  private encryption: TokenEncryption;
 
-  constructor(db: PrismaClient) {
+  constructor(db: PrismaClient, encryption?: TokenEncryption) {
     this.db = db;
+    this.encryption = encryption || tokenEncryption;
   }
 
   // Save a workspace's OAuth token info to the database
@@ -20,18 +23,21 @@ export class WorkspaceService {
   ) {
     const now = new Date();
 
+    // Encrypt the access token before storing
+    const encryptedToken = await this.encryption.encrypt(accessToken);
+
     const result = await this.db.workspace.upsert({
       where: { teamId },
       update: {
         teamName,
-        accessToken,
+        accessToken: encryptedToken,
         botUserId,
         updatedAt: now,
       },
       create: {
         teamId,
         teamName,
-        accessToken,
+        accessToken: encryptedToken,
         botUserId,
         createdAt: now,
         updatedAt: now,
@@ -96,7 +102,10 @@ export class WorkspaceService {
       const workspace = await this.db.workspace.findUniqueOrThrow({
         where: { id: workspaceId },
       });
-      return workspace.accessToken;
+
+      // Decrypt the token before returning
+      const decryptedToken = await this.encryption.decrypt(workspace.accessToken);
+      return decryptedToken;
     } catch (error: PrismaKnownRequestError) {
       if (error.code === "P2025") {
         // Record not found

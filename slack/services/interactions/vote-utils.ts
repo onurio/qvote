@@ -5,6 +5,7 @@ import logger from "@utils/logger.ts";
 import { Vote } from "generated/index.d.ts";
 import { votesService } from "@db/prisma.ts";
 import { NotFoundError } from "@db/errors.ts";
+import { postToSlackApi, slackApiRequest } from "@utils/http-client.ts";
 
 // Define VoteResult type to make it shareable
 export interface VoteResult {
@@ -42,7 +43,7 @@ export async function findVoteMessageInChannel(
 ): Promise<{ ts: string } | null> {
   try {
     // Find the message containing this vote in the channel
-    const historyResponse = await fetch(
+    const historyResponse = await slackApiRequest(
       `https://slack.com/api/conversations.history?channel=${vote.channelId}&limit=20`,
       {
         headers: {
@@ -94,19 +95,18 @@ export async function updateSlackMessage(
   const updatedBlocks = JSON.stringify(createVoteBlocks(vote, ""));
 
   try {
-    const updateResponse = await fetch("https://slack.com/api/chat.update", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        Authorization: `Bearer ${workspaceToken}`,
-      },
-      body: JSON.stringify({
+    const updateResponse = await postToSlackApi(
+      "https://slack.com/api/chat.update",
+      {
         channel: channelId,
         ts: messageTs,
         blocks: updatedBlocks,
         text: vote.isEnded ? `Vote ended: ${vote.title}` : `Vote: ${vote.title}`,
-      }),
-    });
+      },
+      {
+        Authorization: `Bearer ${workspaceToken}`,
+      },
+    );
 
     const updateResult = await updateResponse.json();
     if (!updateResult.ok) {
@@ -152,16 +152,15 @@ export async function sendResponseUrlMessage(
         ? createErrorMessageBlocks(title, message)
         : createInfoMessageBlocks(title, message));
 
-    const response = await fetch(responseUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const response = await postToSlackApi(
+      responseUrl,
+      {
         text: formattedMessage,
         response_type: "ephemeral",
         blocks: blocks,
         replace_original: options?.replace_original === true,
-      }),
-    });
+      },
+    );
 
     const result = await response.json();
     logger.debug("Response URL message result", result);
@@ -275,13 +274,10 @@ export async function sendResultsViaResponseUrl(
 
     logger.debug("Sending results to response_url:", responseUrl);
 
-    const slackResponse = await fetch(responseUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(message),
-    });
+    const slackResponse = await postToSlackApi(
+      responseUrl,
+      message,
+    );
 
     const responseData = await slackResponse.text();
     logger.debug("Response from Slack:", responseData);
