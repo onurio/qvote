@@ -121,43 +121,6 @@ describe(
       );
     });
 
-    it("getAllWorkspaces returns a list of workspaces", async () => {
-      // First ensure our test workspace exists
-      await workspaceService.saveWorkspace(
-        testTeamId,
-        testTeamName,
-        testAccessToken,
-        testBotUserId,
-      );
-
-      // Get all workspaces
-      const result = await workspaceService.getAllWorkspaces();
-
-      // Verify result - should be at least 1 workspace
-      assertEquals(
-        result.length >= 1,
-        true,
-        "Should have at least one workspace",
-      );
-
-      // Find our test workspace in the results
-      const testWorkspace = result.find((ws) => ws.teamId === testTeamId);
-
-      // Verify our test workspace is in the results
-      assertEquals(
-        testWorkspace !== undefined,
-        true,
-        "Test workspace should be in results",
-      );
-      if (testWorkspace) {
-        assertEquals(testWorkspace.teamName, testTeamName);
-        // Token should be encrypted, so decrypt it to verify
-        const decryptedToken = await tokenEncryption.decrypt(testWorkspace.accessToken);
-        assertEquals(decryptedToken, testAccessToken);
-        assertEquals(testWorkspace.botUserId, testBotUserId);
-      }
-    });
-
     it("deleteWorkspaceByTeamId deletes a workspace and all associated data", async () => {
       // First create a workspace to delete
       const workspace = await workspaceService.saveWorkspace(

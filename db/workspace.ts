@@ -47,18 +47,23 @@ export class WorkspaceService {
     return result;
   }
 
-  // Get a workspace by team ID
+  // Get a workspace by team ID with decrypted token
   async getWorkspaceByTeamId(teamId: string) {
-    return await this.db.workspace.findUnique({
+    const workspace = await this.db.workspace.findUnique({
       where: { teamId },
     });
-  }
 
-  // Get all workspaces
-  async getAllWorkspaces() {
-    return await this.db.workspace.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+    if (!workspace) {
+      return null;
+    }
+
+    // Decrypt the access token before returning
+    const decryptedToken = await this.encryption.decrypt(workspace.accessToken);
+
+    return {
+      ...workspace,
+      accessToken: decryptedToken,
+    };
   }
 
   // Delete a workspace and all its associated data by team ID
