@@ -1,12 +1,11 @@
 import logger from "@utils/logger.ts";
 
-// Environment check
-const isProduction = Deno.env.get("ENV") === "production";
-
 /**
  * Sanitizes error messages to prevent information leakage in production
  */
 export function sanitizeError(error: unknown, context?: string): string {
+  const isProduction = Deno.env.get("ENV") === "production";
+
   // In development, return full error details
   if (!isProduction) {
     if (error instanceof Error) {
@@ -57,6 +56,8 @@ export function sanitizeApiError(error: unknown, context?: string): {
   error: string;
   code?: string;
 } {
+  const isProduction = Deno.env.get("ENV") === "production";
+
   if (!isProduction) {
     return {
       error: error instanceof Error ? error.message : String(error),
@@ -91,6 +92,8 @@ export function sanitizeApiError(error: unknown, context?: string): {
  * Sanitizes errors for user-facing messages in Slack
  */
 export function sanitizeUserError(error: unknown, context?: string): string {
+  const isProduction = Deno.env.get("ENV") === "production";
+
   if (!isProduction) {
     return error instanceof Error ? error.message : String(error);
   }
@@ -146,17 +149,17 @@ export function containsSensitiveInfo(message: string): boolean {
 export function removeSensitiveInfo(message: string): string {
   let sanitized = message;
 
-  // Remove file paths
-  sanitized = sanitized.replace(/\/[^\s]+\.(ts|js|json)/g, "[file]");
-
-  // Remove stack traces
-  sanitized = sanitized.replace(/\s+at\s+.*/g, "");
+  // Remove file paths first (before stack trace removal)
+  sanitized = sanitized.replace(/\/[^\s]+?\.(?:ts|js|json)(?=\s|$)/g, "[file]");
 
   // Remove connection strings
   sanitized = sanitized.replace(/postgresql:\/\/[^\s]+/g, "[database_url]");
 
   // Remove tokens and keys
   sanitized = sanitized.replace(/[a-zA-Z0-9]{20,}/g, "[redacted]");
+
+  // Remove stack traces (do this last to preserve other content)
+  sanitized = sanitized.replace(/\n\s*at\s+.*/g, "");
 
   return sanitized.trim();
 }
