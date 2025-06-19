@@ -141,7 +141,7 @@ export function createApiRateLimit() {
 export function createOAuthRateLimit() {
   return createRateLimit({
     windowMs: 60 * 1000, // 1 minute
-    maxRequests: 5, // 50 OAuth requests per minute (increased from 5)
+    maxRequests: 50, // 50 OAuth requests per minute (increased from 5)
     message: "OAuth rate limit exceeded. Please try again later.",
   });
 }

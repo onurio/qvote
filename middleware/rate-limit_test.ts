@@ -342,7 +342,7 @@ Deno.test("preset rate limiters", async (t) => {
     const ctx = createMockContext({ headers: { "x-real-ip": "test-oauth-1" } });
 
     await simulateRequest(middleware, ctx);
-    assertEquals(ctx.response.headers.get("X-RateLimit-Limit"), "5");
+    assertEquals(ctx.response.headers.get("X-RateLimit-Limit"), "50");
   });
 
   await t.step("createSlackCommandRateLimit has correct config", async () => {
