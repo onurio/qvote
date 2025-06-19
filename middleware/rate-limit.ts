@@ -46,11 +46,11 @@ export function createRateLimit(config: RateLimitConfig) {
   return async (ctx: Context, next: Next) => {
     const key = keyGenerator(ctx);
     const now = Date.now();
-    const resetTime = now + windowMs;
 
     // Get or create rate limit entry
     let entry = rateLimitStore.get(key);
     if (!entry || now > entry.resetTime) {
+      const resetTime = now + windowMs;
       entry = { count: 0, resetTime };
       rateLimitStore.set(key, entry);
     }
@@ -67,8 +67,14 @@ export function createRateLimit(config: RateLimitConfig) {
       ctx.response.status = 429;
       ctx.response.headers.set("X-RateLimit-Limit", maxRequests.toString());
       ctx.response.headers.set("X-RateLimit-Remaining", "0");
-      ctx.response.headers.set("X-RateLimit-Reset", Math.ceil(entry.resetTime / 1000).toString());
-      ctx.response.headers.set("Retry-After", Math.ceil((entry.resetTime - now) / 1000).toString());
+      ctx.response.headers.set(
+        "X-RateLimit-Reset",
+        Math.ceil(entry.resetTime / 1000).toString(),
+      );
+      ctx.response.headers.set(
+        "Retry-After",
+        Math.ceil((entry.resetTime - now) / 1000).toString(),
+      );
       ctx.response.body = { error: message };
       return;
     }
@@ -92,7 +98,10 @@ export function createRateLimit(config: RateLimitConfig) {
       "X-RateLimit-Remaining",
       Math.max(0, maxRequests - entry.count).toString(),
     );
-    ctx.response.headers.set("X-RateLimit-Reset", Math.ceil(entry.resetTime / 1000).toString());
+    ctx.response.headers.set(
+      "X-RateLimit-Reset",
+      Math.ceil(entry.resetTime / 1000).toString(),
+    );
   };
 }
 
@@ -132,7 +141,7 @@ export function createApiRateLimit() {
 export function createOAuthRateLimit() {
   return createRateLimit({
     windowMs: 60 * 1000, // 1 minute
-    maxRequests: 5, // 5 OAuth requests per minute
+    maxRequests: 5, // 50 OAuth requests per minute (increased from 5)
     message: "OAuth rate limit exceeded. Please try again later.",
   });
 }
