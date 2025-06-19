@@ -4,13 +4,11 @@ import logger from "@utils/logger.ts";
 import { workspaceService } from "@db/prisma.ts";
 import { authService } from "./services/auth.ts";
 import { apiSecurityHeaders } from "@middleware/security-headers.ts";
-import { createOAuthRateLimit } from "@middleware/rate-limit.ts";
 
 const router = new Router();
 
 // Apply OAuth-specific middleware
 router.use(apiSecurityHeaders());
-router.use(createOAuthRateLimit());
 
 // Redirect users to Slack's OAuth authorization page
 router.get("/oauth/authorize", (ctx) => {

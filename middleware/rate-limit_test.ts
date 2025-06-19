@@ -1,12 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { Context } from "jsr:@oak/oak";
-import {
-  createApiRateLimit,
-  createGeneralRateLimit,
-  createOAuthRateLimit,
-  createRateLimit,
-  createSlackCommandRateLimit,
-} from "./rate-limit.ts";
+import { createGeneralRateLimit, createRateLimit } from "./rate-limit.ts";
 
 // Helper to create a mock context
 function createMockContext(options: {
@@ -329,30 +323,6 @@ Deno.test("createRateLimit - headers", async (t) => {
 });
 
 Deno.test("preset rate limiters", async (t) => {
-  await t.step("createApiRateLimit has correct config", async () => {
-    const middleware = createApiRateLimit();
-    const ctx = createMockContext({ headers: { "x-real-ip": "test-api-1" } });
-
-    await simulateRequest(middleware, ctx);
-    assertEquals(ctx.response.headers.get("X-RateLimit-Limit"), "100");
-  });
-
-  await t.step("createOAuthRateLimit has correct config", async () => {
-    const middleware = createOAuthRateLimit();
-    const ctx = createMockContext({ headers: { "x-real-ip": "test-oauth-1" } });
-
-    await simulateRequest(middleware, ctx);
-    assertEquals(ctx.response.headers.get("X-RateLimit-Limit"), "50");
-  });
-
-  await t.step("createSlackCommandRateLimit has correct config", async () => {
-    const middleware = createSlackCommandRateLimit();
-    const ctx = createMockContext({ headers: { "x-real-ip": "test-slack-1" } });
-
-    await simulateRequest(middleware, ctx);
-    assertEquals(ctx.response.headers.get("X-RateLimit-Limit"), "20");
-  });
-
   await t.step("createGeneralRateLimit has correct config", async () => {
     const middleware = createGeneralRateLimit();
     const ctx = createMockContext({ headers: { "x-real-ip": "test-general-1" } });

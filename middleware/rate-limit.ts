@@ -125,44 +125,6 @@ function getClientIp(ctx: Context): string {
 }
 
 /**
- * Create stricter rate limit for API endpoints
- */
-export function createApiRateLimit() {
-  return createRateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    maxRequests: 100, // 100 requests per 15 minutes
-    message: "API rate limit exceeded. Please try again later.",
-  });
-}
-
-/**
- * Create rate limit for OAuth endpoints
- */
-export function createOAuthRateLimit() {
-  return createRateLimit({
-    windowMs: 60 * 1000, // 1 minute
-    maxRequests: 50, // 50 OAuth requests per minute (increased from 5)
-    message: "OAuth rate limit exceeded. Please try again later.",
-  });
-}
-
-/**
- * Create rate limit for Slack commands
- */
-export function createSlackCommandRateLimit() {
-  return createRateLimit({
-    windowMs: 60 * 1000, // 1 minute
-    maxRequests: 20, // 20 commands per minute per user
-    keyGenerator: (ctx) => {
-      // For Slack commands, we'll use IP-based rate limiting for simplicity
-      // The user_id extraction would need to be done after body parsing
-      return getClientIp(ctx);
-    },
-    message: "Command rate limit exceeded. Please slow down.",
-  });
-}
-
-/**
  * Create general rate limit for all requests
  */
 export function createGeneralRateLimit() {
