@@ -24,6 +24,7 @@ export async function notify(event: NotificationEvent): Promise<void> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+    logger.info("Notification sent", { event });
   } catch (error) {
     logger.warn("Failed to send notification", { event, error });
   }
