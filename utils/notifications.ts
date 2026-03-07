@@ -20,12 +20,17 @@ export async function notify(event: NotificationEvent): Promise<void> {
   };
 
   try {
-    await fetch(webhookUrl, {
+    const res = await fetch(webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    logger.info("Notification sent", { event });
+    if (!res.ok) {
+      const body = await res.text();
+      logger.warn("Notification rejected", { event, status: res.status, body });
+    } else {
+      logger.info("Notification sent", { event, status: res.status });
+    }
   } catch (error) {
     logger.warn("Failed to send notification", { event, error });
   }
