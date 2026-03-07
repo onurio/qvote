@@ -14,6 +14,7 @@ export async function notify(event: NotificationEvent): Promise<void> {
   if (!webhookUrl) return;
 
   const payload = {
+    message: event,
     event,
     timestamp: new Date().toISOString(),
   };
