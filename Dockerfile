@@ -12,11 +12,11 @@ COPY prisma/ ./prisma/
 # Generate Prisma client with script permissions
 RUN deno run --allow-all --allow-scripts=npm:@prisma/engines@6.4.1,npm:prisma@6.4.1,npm:@prisma/client@6.4.1 npm:prisma@latest generate
 
-# Cache the dependencies
-RUN deno cache --reload main.ts
-
 # Copy the rest of the application code
 COPY . .
+
+# Cache the dependencies
+RUN deno cache --reload main.ts
 
 # Expose the port (Cloud Run injects PORT env var that the container should listen on)
 EXPOSE ${PORT:-8443}
