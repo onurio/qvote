@@ -11,6 +11,7 @@ import { createSlackVerifier } from "@middleware/slack-verification.ts";
 import { createGeneralRateLimit } from "@middleware/rate-limit.ts";
 import { securityHeaders } from "@middleware/security-headers.ts";
 import { sanitizeApiError } from "@utils/error-sanitization.ts";
+import denoConfig from "./deno.json" with { type: "json" };
 
 // Load environment variables from .env file
 await load({ export: true });
@@ -67,6 +68,11 @@ function setupServer() {
   const router = new Router();
   router.get("/", async (ctx) => {
     ctx.response.body = await getHomePage();
+  });
+
+  router.get("/version", (ctx) => {
+    ctx.response.type = "application/json";
+    ctx.response.body = { version: denoConfig.version };
   });
 
   // Privacy policy route
