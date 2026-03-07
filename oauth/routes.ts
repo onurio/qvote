@@ -4,6 +4,7 @@ import logger from "@utils/logger.ts";
 import { workspaceService } from "@db/prisma.ts";
 import { authService } from "./services/auth.ts";
 import { apiSecurityHeaders } from "@middleware/security-headers.ts";
+import { notify } from "@utils/notifications.ts";
 
 const router = new Router();
 
@@ -38,6 +39,7 @@ router.get("/oauth/callback", validateOAuthCallback, async (ctx) => {
     try {
       await workspaceService.saveWorkspace(teamId, teamName, accessToken, botUserId);
       logger.info(`Workspace saved: ${teamName} (${teamId})`);
+      notify("workspace_installed");
     } catch (err) {
       logger.error("Error saving workspace:", err);
     }

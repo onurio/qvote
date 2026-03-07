@@ -8,6 +8,7 @@ import {
   updateOriginalMessageAfterVoteEnd,
 } from "../vote-utils.ts";
 import { votesService, workspaceService } from "@db/prisma.ts";
+import { notify } from "@utils/notifications.ts";
 
 export async function handleEndVote(
   action: NonNullable<SlackInteraction["actions"]>[number],
@@ -55,6 +56,7 @@ export async function handleEndVote(
 
     // End the vote in the database
     await votesService.endVote(voteId);
+    notify("vote_ended");
 
     // Get results to show after ending vote
     const results = await votesService.getVoteResults(voteId);

@@ -6,6 +6,7 @@ import logger from "@utils/logger.ts";
 import { votesService, workspaceService } from "@db/prisma.ts";
 import { createErrorResponse } from "@slack/services/interactions/vote-utils.ts";
 import { postToSlackApi } from "@utils/http-client.ts";
+import { notify } from "@utils/notifications.ts";
 
 // Handle the vote creation submission
 export async function handleCreateVoteSubmission(
@@ -155,6 +156,7 @@ export async function handleCreateVoteSubmission(
     });
 
     logger.info("Vote created successfully", { voteId: vote.id });
+    notify("vote_created");
 
     // Create the blocks for the vote message
     const blocks = JSON.stringify(createVoteBlocks(vote, ""));
