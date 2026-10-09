@@ -24,6 +24,7 @@
     "npm:path-to-regexp@^6.3.0": "6.3.0",
     "npm:postgres@3.4.3": "3.4.3",
     "npm:prisma@*": "6.4.1_esbuild@0.25.0",
+    "npm:prisma@6.4.1": "6.4.1_esbuild@0.25.0",
     "npm:prisma@latest": "6.4.1_esbuild@0.25.0"
   },
   "jsr": {
